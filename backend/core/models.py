@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 # Create your models here.
 
 
@@ -31,7 +32,7 @@ class Course(models.Model):
         blank=True,
     )
 
- class Module(models.Model):
+class Module(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     module_name = models.TextField()
     module_desc = models.TextField(null=True, blank=True)
@@ -54,9 +55,10 @@ class UserModuleGrade(models.Model):
     score = models.IntegerField(null=True, blank=True)
     total = models.IntegerField(null=True, blank=True)
 
-class UserQuestionGrade(models.Model):
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    score = models.IntegerField(null=True, blank=True)
-    total = models.IntegerField(null=True, blank=True)
-    is_overdue = models.BooleanField(default=False)
+# TODO: Create Question model before uncommenting this
+# class UserQuestionGrade(models.Model):
+#     question = models.ForeignKey(Question, on_delete=models.CASCADE)
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
+#     score = models.IntegerField(null=True, blank=True)
+#     total = models.IntegerField(null=True, blank=True)
+#     is_overdue = models.BooleanField(default=False)
