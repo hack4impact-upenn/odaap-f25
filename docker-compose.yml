@@ -4,12 +4,12 @@ services:
   postgres:
     image: postgres:15-alpine
     # Replace 'myapp' with your actual app name
-    container_name: myapp_postgres
+    container_name: odaap_postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       # Replace 'myapp' with your actual app name
-      POSTGRES_DB: myapp_db
+      POSTGRES_DB: odaap_db
     ports:
       - "5432:5432"
     volumes:
