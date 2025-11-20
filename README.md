@@ -204,11 +204,12 @@ The `.env` file should already contain the correct `DATABASE_URL` for Docker. No
 
 ### 5. Run Database Migrations
 
-After setting up your `.env` file and starting the Docker database, run the initial migrations:
+After setting up your `.env` file and starting the Docker database, create and run the initial migrations:
 
 ```bash
 cd backend
 source venv/bin/activate  # if not already activated
+python manage.py makemigrations core
 python manage.py migrate
 ```
 
