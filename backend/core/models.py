@@ -1,7 +1,14 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+import enum
 # Create your models here.
+
+class QuestionType(models.TextChoices):
+    MULTIPLE_CHOICE = "multiple_choice"
+    AUDIO = "audio"
+    WRITTEN = "written"
+    VIDEO = "video"
 
 # MAIN TABLES 
 class User(AbstractUser):
@@ -14,23 +21,12 @@ class User(AbstractUser):
 class Course(models.Model):
     zoom_link = models.TextField(null=True, blank=True)
     course_name = models.TextField()
-    course_descrp = models.TextField(null=True, blank=True)
+    course_description = models.TextField(null=True, blank=True)
     score_total = models.IntegerField(default=0)
 
     def __str__(self):
         return self.course_name
         
-    students = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
-        related_name="courses_as_student",
-        blank=True,
-    )
-
-    teachers = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
-        related_name="courses_as_teacher",
-        blank=True,
-    )
 
 class Module(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
@@ -45,8 +41,9 @@ class Module(models.Model):
 
 class Question(models.Model):
     module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    question_type = models.CharField(max_length=20, choices=QuestionType.choices)
+
     question_text = models.TextField()
-    question_type = models.TextField()
     question_order = models.IntegerField()
     score_total = models.IntegerField(default=0)
 
