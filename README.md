@@ -1,16 +1,61 @@
 # My App
 
-> **Note:** Replace "My App" and "myapp" throughout this README with your actual application name. Only use npm for package handling in this repo (DO NOT USE YARN).
+> **Note:** Only use npm for package handling in this repo (DO NOT USE YARN).
 
 ## Table of Contents
 
+- [Global Setup](#global-setup) - **Do this FIRST before team members start local setup**
 - [Prerequisites](#prerequisites)
-- [Database Setup with Docker](#database-setup-with-docker)
-- [Backend Setup](#backend-setup)
-- [Frontend Setup](#frontend-setup)
+- [Local Setup](#local-setup)
+  - [Database Setup with Docker](#database-setup-with-docker)
+  - [Backend Setup](#backend-setup)
+  - [Frontend Setup](#frontend-setup)
 - [AWS Configuration](#aws-configuration)
 - [Heroku Deployment](#heroku-deployment)
 - [Other Tips](#other-tips)
+
+---
+
+## Global Setup
+
+> **IMPORTANT: This must be done by ONE person BEFORE any team members start their local setup.**
+
+> **If you are just setting up your local machine as a team member, skip to [Local Setup](#local-setup).**
+
+Replace `myapp` with your actual app name in the following files:
+
+### 1. `docker-compose.yml`
+
+Update the following lines:
+
+```yaml
+# Line 7: Change container_name
+container_name: <appname>_postgres
+
+# Line 12: Change POSTGRES_DB
+POSTGRES_DB: <appname>_db
+```
+
+**Example:** If your app name is `myproject`, change:
+- `myapp_postgres` → `myproject_postgres`
+- `myapp_db` → `myproject_db`
+
+### 2. `.env` file (or `.env.example` if it exists)
+
+If you have a `.env.example` file in the `backend` directory, update the `DATABASE_URL`:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/<appname>_db
+```
+
+**Example:** If your app name is `myproject`, change:
+- `myapp_db` → `myproject_db`
+
+Make sure the database name matches what you set in `docker-compose.yml`.
+
+### 3. Commit these changes
+
+After making these changes, commit and push them to the repository so all team members use the same app name.
 
 ---
 
@@ -22,13 +67,13 @@
 
 ---
 
-## Database Setup with Docker
+## Local Setup
+
+### Database Setup with Docker
 
 This project uses **PostgreSQL only** (no SQLite fallback). We use Docker to run PostgreSQL locally, so you don't need to install PostgreSQL on your machine.
 
 ### 1. Start PostgreSQL with Docker
-
-> **Note:** Update the database name in `docker-compose.yml` and `.env` file to match your app name (replace `myapp` with your actual app name).
 
 From the project root directory, start the PostgreSQL container:
 
@@ -38,14 +83,14 @@ docker-compose up -d
 
 This will:
 - Download the PostgreSQL 15 image (if not already downloaded)
-- Start a PostgreSQL container named `myapp_postgres` (replace `myapp` with your app name)
-- Create a database named `myapp_db` (replace `myapp` with your app name)
+- Start a PostgreSQL container named `<appname>_postgres`
+- Create a database named `<appname>_db`
 - Expose PostgreSQL on port `5432`
 
 **Default credentials:**
 - Username: `postgres`
 - Password: `postgres`
-- Database: `myapp_db` (replace `myapp` with your app name)
+- Database: `<appname>_db`
 - Port: `5432`
 
 
@@ -65,13 +110,17 @@ docker-compose logs postgres
 
 ### 3. Configure DATABASE_URL
 
-The `.env.example` file contains a template `DATABASE_URL` for Docker. When you create your `.env` file, update it with your app name:
+If you have a `.env.example` file, copy it to `.env`:
 
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/myapp_db
+```bash
+cp backend/.env.example backend/.env
 ```
 
-Replace `myapp` with your actual app name. Make sure it matches the database name in `docker-compose.yml`.
+The `.env` file should contain:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/<appname>_db
+```
 
 > **Next Step:** After configuring the database, proceed to [Backend Setup](#backend-setup) to set up your backend environment and run migrations.
 
@@ -94,18 +143,14 @@ docker-compose logs -f postgres
 docker-compose ps
 
 # Access PostgreSQL CLI
-docker-compose exec postgres psql -U postgres -d myapp_db
+docker-compose exec postgres psql -U postgres -d <appname>_db
 ```
-
-> **Note:** Replace `myapp` with your actual app name in the database name.
 
 ### Heroku PostgreSQL
 
 When deploying to Heroku, the `DATABASE_URL` is automatically set by Heroku. See the [Heroku Deployment](#heroku-deployment) section below.
 
----
-
-## Backend Setup
+### Backend Setup
 
 ### 1. Create and Activate Virtual Environment
 
@@ -153,7 +198,7 @@ Create a `.env` file in the `/backend` directory using `.env.example` as a templ
 cp .env.example .env
 ```
 
-The `.env.example` file already contains the correct `DATABASE_URL` for Docker. No changes needed unless you want to customize the database credentials.
+The `.env` file should already contain the correct `DATABASE_URL` for Docker. No changes needed unless you want to customize the database credentials.
 
 > **Note:** Make sure you've completed the [Database Setup with Docker](#database-setup-with-docker) section before proceeding with migrations.
 
@@ -169,9 +214,7 @@ python manage.py migrate
 
 This will create the necessary database tables for your Django application.
 
----
-
-## Frontend Setup
+### Frontend Setup
 
 ### 1. Install Dependencies
 
@@ -422,7 +465,7 @@ urlpatterns = [
 - **Docker not running**: Ensure Docker Desktop is running before starting the database
 - **Container not started**: Run `docker-compose up -d` from the project root
 - **Port conflict**: If port 5432 is already in use, stop other PostgreSQL instances or change the port in `docker-compose.yml`
-- **Verify DATABASE_URL**: Check that `DATABASE_URL` in `.env` matches your database name (e.g., `postgresql://postgres:postgres@localhost:5432/myapp_db` - replace `myapp` with your app name)
+- **Verify DATABASE_URL**: Check that `DATABASE_URL` in `.env` matches your database name (e.g., `postgresql://postgres:postgres@localhost:5432/<appname>_db`)
 - **Check container status**: Run `docker-compose ps` to see if the container is running
 - **View logs**: Run `docker-compose logs postgres` to see database logs
 
