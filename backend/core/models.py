@@ -60,7 +60,7 @@ class Submission(models.Model):
     time_submitted = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.submission_text
+        return self.submission_response
 
 
 # RELATIONSHIP TABLES 
