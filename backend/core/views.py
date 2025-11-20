@@ -1,12 +1,13 @@
 from django.shortcuts import render
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
+from .models import Course
+from .serializers import CourseSerializer
 
-# Example view
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 
-# Note: add views to config/urls.py
-@api_view(["GET"])
-def hello(request):
-    return Response({"message": "Hello World"})
-
-# Create your views here.
+class CourseViewSet(viewsets.ModelViewSet):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
