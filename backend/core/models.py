@@ -3,7 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 # Create your models here.
 
-
+# MAIN TABLES 
 class User(AbstractUser):
     isStudent = models.BooleanField(default=True)
 
@@ -43,18 +43,6 @@ class Module(models.Model):
     def __str__(self):
         return self.module_name
 
-class UserCourseGrade(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    score = models.IntegerField(null=True, blank=True)
-    total = models.IntegerField(null=True, blank=True)
-
-class UserModuleGrade(models.Model):
-    module = models.ForeignKey(Module, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    score = models.IntegerField(null=True, blank=True)
-    total = models.IntegerField(null=True, blank=True)
-
 class Question(models.Model):
     module = models.ForeignKey(Module, on_delete=models.CASCADE)
     question_text = models.TextField()
@@ -64,6 +52,40 @@ class Question(models.Model):
 
     def __str__(self):
         return self.question_text
+
+class Submission(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    submission_text = models.TextField()
+    submission_order = models.IntegerField()
+    score = models.IntegerField(null=True, blank=True) # TODO ADD s3
+    total = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return self.submission_text
+
+
+# RELATIONSHIP TABLES 
+
+class UserModuleGrade(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    score = models.IntegerField(null=True, blank=True)
+    total = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return self.module.module_name
+
+class UserCourseGrade(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    score = models.IntegerField(null=True, blank=True)
+    total = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return self.course.course_name
+
+
 
 class UserQuestionGrade(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
