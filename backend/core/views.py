@@ -10,7 +10,6 @@ from .serializers import CourseSerializer
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 =======
 from rest_framework.decorators import action, api_view
