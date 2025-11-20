@@ -18,13 +18,14 @@ from django.contrib import admin
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-# example view
-from core.views import hello
+# views
+from core.views import CourseViewSet
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', hello), # example path
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    # courses
+    path('api/courses/', CourseViewSet.as_view(), name='course_list'),
 ]
