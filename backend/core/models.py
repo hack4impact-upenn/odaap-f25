@@ -31,8 +31,6 @@ class Course(models.Model):
         blank=True,
     )
 
-
-
  class Module(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     module_name = models.TextField()
