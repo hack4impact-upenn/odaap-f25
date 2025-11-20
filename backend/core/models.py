@@ -31,8 +31,9 @@ class Course(models.Model):
 class Module(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     module_name = models.TextField()
-    module_desc = models.TextField(null=True, blank=True)
-    module_order = models.IntegerField()    
+    module_description = models.TextField(null=True, blank=True)
+
+    module_order = models.IntegerField() # order it should be in the course   
     score_total = models.IntegerField(default=0)
     is_posted = models.BooleanField(default=False)
 
@@ -43,20 +44,20 @@ class Question(models.Model):
     module = models.ForeignKey(Module, on_delete=models.CASCADE)
     question_type = models.CharField(max_length=20, choices=QuestionType.choices)
 
-    question_text = models.TextField()
-    question_order = models.IntegerField()
+    question_text = models.TextField() 
+    question_order = models.IntegerField() # order it should be in the module
     score_total = models.IntegerField(default=0)
 
     def __str__(self):
         return self.question_text
 
 class Submission(models.Model):
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    submission_text = models.TextField()
-    submission_order = models.IntegerField()
-    score = models.IntegerField(null=True, blank=True) # TODO ADD s3
-    total = models.IntegerField(null=True, blank=True)
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    submission_type = models.CharField(max_length=20, choices=QuestionType.choices)
+    submission_response = models.TextField()
+    time_submitted = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.submission_text
@@ -120,3 +121,10 @@ class ModuleToQuestions(models.Model):
 
     def __str__(self):
         return self.module.module_name
+
+class QuestionToCorrectAnswers(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    correct_answer = models.TextField()
+
+    def __str__(self):
+        return self.question.question_text
