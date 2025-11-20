@@ -20,6 +20,8 @@
 
 > **IMPORTANT: This must be done by ONE person BEFORE any team members start their local setup.**
 
+> **If you are just setting up your local machine as a team member, skip to [Local Setup](#local-setup).**
+
 Replace `myapp` with your actual app name in the following files:
 
 ### 1. `docker-compose.yml`
