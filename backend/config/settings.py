@@ -14,6 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 import sys
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,15 +37,15 @@ load_dotenv(env_path)
 SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 
-ENVIRONMENT = os.getenv("ENVIRONMENT")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 # allows all hosts in development, but only specific hosts in production
-if ENVIRONMENT.lower() == "development":
+if ENVIRONMENT and ENVIRONMENT.lower() == "development":
     DEBUG = True
 else:
     DEBUG = False
 
-os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 # Application definition
 
 INSTALLED_APPS = [
@@ -89,11 +90,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Database: PostgreSQL only (required)
+# Heroku PostgreSQL requires SSL connections
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL environment variable is required. "
+        "Please set it in your .env file or environment variables."
+    )
+
+# Heroku PostgreSQL always requires SSL
+# For local development with PostgreSQL, SSL can be disabled
+# Check if it's a Heroku database URL (contains 'heroku' or 'amazonaws.com')
+is_heroku_db = 'heroku' in DATABASE_URL.lower() or 'amazonaws.com' in DATABASE_URL.lower()
+ssl_required = True if is_heroku_db or (ENVIRONMENT and ENVIRONMENT.lower() != "development") else False
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=ssl_required),
 }
 
 
@@ -144,9 +158,27 @@ INSTALLED_APPS += ['storages']
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = "us-east-1"
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
 AWS_QUERYSTRING_AUTH = False
 AWS_DEFAULT_ACL = None
 
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/"
+if AWS_STORAGE_BUCKET_NAME:
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/"
+
+# AWS SES (Simple Email Service) Configuration
+# SES uses the same AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as S3
+AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME", "us-east-1")
+AWS_SES_REGION_ENDPOINT = os.getenv("AWS_SES_REGION_ENDPOINT", f"email.{AWS_SES_REGION_NAME}.amazonaws.com")
+SES_FROM_EMAIL = os.getenv("SES_FROM_EMAIL", "")
+
+# Email backend configuration
+# Use AWS SES if credentials are provided, otherwise use console backend for development
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and SES_FROM_EMAIL:
+    EMAIL_BACKEND = 'django_ses.SESBackend'
+    DEFAULT_FROM_EMAIL = SES_FROM_EMAIL
+    SERVER_EMAIL = SES_FROM_EMAIL
+else:
+    # Console backend for development (emails printed to console)
+    EMAIL_BACKEND = 'django.core.mail.backends.console.ConsoleEmailBackend'
+    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
