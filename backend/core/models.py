@@ -86,7 +86,6 @@ class UserCourseGrade(models.Model):
         return self.course.course_name
 
 
-
 class UserQuestionGrade(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -96,3 +95,31 @@ class UserQuestionGrade(models.Model):
 
     def __str__(self):
         return self.question.question_text
+
+class CourseToStudents(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.course.course_name
+
+class CourseToTeachers(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.course.course_name
+
+class CourseToModules(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.course.course_name
+
+class ModuleToQuestions(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.module.module_name
