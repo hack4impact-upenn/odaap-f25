@@ -1,6 +1,6 @@
 
 from rest_framework import serializers
-from .models import Course, User
+from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers
 
 class CourseSerializer(serializers.ModelSerializer):
     
