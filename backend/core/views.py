@@ -1,17 +1,5 @@
 from django.shortcuts import render
 from rest_framework import viewsets
-<<<<<<< Updated upstream
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
-from .models import Course
-from .serializers import CourseSerializer
-
-
-class CourseViewSet(viewsets.ModelViewSet):
-    queryset = Course.objects.all()
-    serializer_class = CourseSerializer
-    permission_classes = [IsAuthenticated]
-=======
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -19,10 +7,6 @@ from django.shortcuts import get_object_or_404
 from .models import Course, User, CourseToStudents, CourseToTeachers, Module
 from .serializers import CourseSerializer, ModuleSerializer
 
-# Example view (keep if you want)
-@api_view(["GET"])
-def hello(request):
-    return Response({"message": "Hello World"})
 
 # Course ViewSet using ModelViewSet
 class CourseViewSet(viewsets.ModelViewSet):
@@ -187,6 +171,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(course)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
 
 # Module ViewSet using ModelViewSet
@@ -197,4 +182,3 @@ class ModuleViewSet(viewsets.ModelViewSet):
     """
     queryset = Module.objects.all()
     serializer_class = ModuleSerializer
->>>>>>> Stashed changes
