@@ -484,6 +484,342 @@ urlpatterns = [
 
 ---
 
+### Creating Django Models
+
+Models define your database structure. Create models in `core/models.py`.
+
+#### Basic Model Structure
+
+```python
+from django.db import models
+
+class MyModel(models.Model):
+    # Field definitions here
+    
+    class Meta:
+        ordering = ['-created_at']  # Optional: default ordering
+    
+    def __str__(self):
+        return self.name  # String representation for admin/Django shell
+```
+
+#### Common Field Types
+
+```python
+class Example(models.Model):
+    # Text fields
+    name = models.CharField(max_length=100)  # Short text, required
+    description = models.TextField()  # Long text, required
+    bio = models.TextField(null=True, blank=True)  # Optional long text
+    
+    # Numbers
+    age = models.IntegerField()  # Integer, required
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Decimal
+    score = models.IntegerField(default=0)  # With default value
+    
+    # Boolean
+    is_active = models.BooleanField(default=True)
+    is_published = models.BooleanField(default=False)
+    
+    # Dates
+    created_at = models.DateTimeField(auto_now_add=True)  # Set on creation
+    updated_at = models.DateTimeField(auto_now=True)  # Updated on save
+    
+    # Foreign keys (see Relationships section below)
+    # Many-to-many (see Relationships section below)
+```
+
+#### null=True vs blank=True
+
+These are two different concepts that work together:
+
+- **`null=True`**: Allows the database column to store `NULL` values
+  - Database-level constraint
+  - Use for fields that might not have a value
+
+- **`blank=True`**: Allows the field to be empty in forms/admin
+  - Validation-level constraint
+  - Use for fields that are optional in forms
+
+**Common combinations:**
+
+```python
+# Required field (default)
+name = models.CharField(max_length=100)
+# Database: NOT NULL, Forms: Required
+
+# Optional field (can be empty in DB and forms)
+description = models.TextField(null=True, blank=True)
+# Database: NULL allowed, Forms: Optional
+
+# Field with default (recommended for optional fields)
+score = models.IntegerField(default=0)
+# Database: NOT NULL (defaults to 0), Forms: Optional (shows 0)
+
+# Date that's auto-set (doesn't need null/blank)
+created_at = models.DateTimeField(auto_now_add=True)
+# Database: NOT NULL, Forms: Hidden/auto-set
+```
+
+**When to use defaults:**
+
+- **Use `default=` when**: You want a sensible fallback value
+  ```python
+  score = models.IntegerField(default=0)  # Better than null=True
+  is_active = models.BooleanField(default=True)
+  ```
+
+- **Use `null=True, blank=True` when**: The field is truly optional and has no sensible default
+  ```python
+  middle_name = models.CharField(max_length=50, null=True, blank=True)
+  bio = models.TextField(null=True, blank=True)
+  ```
+
+- **Use `null=True, blank=True, default=None` when**: You want to explicitly track "not set" vs "empty string"
+  ```python
+  # For CharField/TextField, empty string '' vs None can be different
+  optional_text = models.CharField(max_length=100, null=True, blank=True, default=None)
+  ```
+
+#### Model Relationships
+
+##### 1. ForeignKey (Many-to-One)
+
+A ForeignKey creates a many-to-one relationship. One model "belongs to" another.
+
+```python
+from django.conf import settings
+
+class Module(models.Model):
+    course = models.ForeignKey(
+        Course, 
+        on_delete=models.CASCADE,  # Delete module if course is deleted
+        related_name='modules'  # Access via course.modules.all()
+    )
+    name = models.CharField(max_length=100)
+```
+
+**`on_delete` options:**
+- `CASCADE`: Delete this object when parent is deleted (default for most cases)
+- `PROTECT`: Prevent deletion of parent if children exist
+- `SET_NULL`: Set to NULL when parent is deleted (requires `null=True`)
+- `SET_DEFAULT`: Set to default value when parent is deleted
+- `DO_NOTHING`: Don't do anything (not recommended)
+
+**Usage:**
+```python
+# Create
+module = Module.objects.create(course=my_course, name="Intro")
+
+# Access parent
+module.course  # Returns Course object
+
+# Access children (via related_name)
+course.modules.all()  # All modules for this course
+```
+
+##### 2. ManyToManyField (Many-to-Many)
+
+Creates a many-to-many relationship. Both models can have multiple of the other.
+
+```python
+from django.conf import settings
+
+class Course(models.Model):
+    name = models.CharField(max_length=100)
+    
+    # Many-to-many with User model
+    students = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,  # Use settings.AUTH_USER_MODEL, not 'User'
+        related_name='courses_as_student',
+        blank=True  # Can have no students initially
+    )
+    
+    teachers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='courses_as_teacher',
+        blank=True
+    )
+```
+
+**Important:** Always use `settings.AUTH_USER_MODEL` (string) or import `get_user_model()` for the User model, not `'User'` directly.
+
+**Usage:**
+```python
+# Add relationships
+course.students.add(user1, user2)
+course.teachers.add(teacher1)
+
+# Remove relationships
+course.students.remove(user1)
+
+# Clear all
+course.students.clear()
+
+# Check if user is in course
+if user in course.students.all():
+    pass
+
+# Access from User side (via related_name)
+user.courses_as_student.all()  # All courses where user is a student
+user.courses_as_teacher.all()  # All courses where user is a teacher
+```
+
+**Many-to-Many Through Table (Custom Intermediate Model):**
+
+If you need to store extra data about the relationship, use `through`:
+
+```python
+class Course(models.Model):
+    name = models.CharField(max_length=100)
+    students = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through='Enrollment',  # Custom intermediate model
+        related_name='enrolled_courses'
+    )
+
+class Enrollment(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    grade = models.IntegerField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = [['course', 'student']]  # Prevent duplicate enrollments
+```
+
+**Usage with through:**
+```python
+# Create enrollment with extra data
+Enrollment.objects.create(course=course, student=user, grade=95)
+
+# Access still works
+course.students.all()  # All students
+user.enrolled_courses.all()  # All courses
+
+# Access intermediate model
+enrollment = Enrollment.objects.get(course=course, student=user)
+enrollment.grade  # Access extra data
+```
+
+##### 3. OneToOneField (One-to-One)
+
+Creates a one-to-one relationship. Each instance of one model relates to exactly one instance of another.
+
+```python
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='profile'
+    )
+    bio = models.TextField(blank=True)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+```
+
+**Usage:**
+```python
+# Create
+profile = UserProfile.objects.create(user=user, bio="Hello")
+
+# Access
+user.profile  # Returns UserProfile (or raises DoesNotExist)
+user.profile.bio
+
+# Check if exists
+if hasattr(user, 'profile'):
+    pass
+```
+
+#### Complete Example
+
+```python
+from django.db import models
+from django.conf import settings
+from django.contrib.auth import get_user_model
+
+User = get_user_model()  # Or use settings.AUTH_USER_MODEL as string
+
+class Course(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Many-to-many relationships
+    students = models.ManyToManyField(
+        User,
+        related_name='student_courses',
+        blank=True
+    )
+    teachers = models.ManyToManyField(
+        User,
+        related_name='teacher_courses',
+        blank=True
+    )
+    
+    def __str__(self):
+        return self.name
+
+class Module(models.Model):
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='modules'
+    )
+    title = models.CharField(max_length=200)
+    order = models.IntegerField(default=0)
+    is_published = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['order']
+    
+    def __str__(self):
+        return f"{self.course.name} - {self.title}"
+
+class Grade(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE)
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    score = models.IntegerField(default=0)
+    total = models.IntegerField(default=100)
+    graded_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = [['student', 'module']]  # One grade per student per module
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.module.title}: {self.score}/{self.total}"
+```
+
+#### After Creating/Modifying Models
+
+1. **Create migrations:**
+   ```bash
+   python manage.py makemigrations core
+   ```
+
+2. **Review migrations** (optional):
+   ```bash
+   python manage.py sqlmigrate core 0001
+   ```
+
+3. **Apply migrations:**
+   ```bash
+   python manage.py migrate
+   ```
+
+4. **Register in admin** (optional):
+   ```python
+   # core/admin.py
+   from django.contrib import admin
+   from .models import Course, Module, Grade
+   
+   admin.site.register(Course)
+   admin.site.register(Module)
+   admin.site.register(Grade)
+   ```
+
+---
+
 ## Troubleshooting
 
 ### Database Connection Issues
