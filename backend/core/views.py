@@ -9,5 +9,4 @@ from .serializers import CourseSerializer
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
