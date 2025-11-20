@@ -61,6 +61,13 @@ After making these changes, commit and push them to the repository so all team m
 
 ## Prerequisites
 
+- **Node.js** (for frontend development)
+  - Version: **Node.js 20.19.0 or higher**, or **Node.js 22.12.0 or higher**
+  - Required by Vite and React dependencies (specified in `package.json` `engines` field)
+  - Check your version: `node --version`
+  - If using `nvm`, run `nvm use` in the `frontend` directory (uses `.nvmrc` file)
+  - Download from [nodejs.org](https://nodejs.org/) if needed
+
 - **Docker Desktop** (for local PostgreSQL database)
   - Download from [docker.com](https://www.docker.com/products/docker-desktop)
   - Ensure Docker is running before starting the database
@@ -217,7 +224,25 @@ This will create the necessary database tables for your Django application.
 
 ### Frontend Setup
 
-### 1. Install Dependencies
+### 1. Verify Node.js Version
+
+Before installing dependencies, ensure you have the correct Node.js version:
+
+```bash
+node --version
+```
+
+You need **Node.js 20.19.0+** or **22.12.0+**. 
+
+If using `nvm` (Node Version Manager), you can automatically use the correct version:
+```bash
+cd frontend
+nvm use
+```
+
+The required version is specified in `package.json` (`engines` field) and `.nvmrc`. If you see warnings about unsupported engine versions, update Node.js.
+
+### 2. Install Dependencies
 
 `cd` into the `frontend` directory and install dependencies:
 
@@ -228,7 +253,7 @@ npm ci
 
 > **Important:** Use `npm ci` (NOT `npm install`). If you are modifying `package-lock.json`, you are doing it wrong.
 
-### 2. Run the Application
+### 3. Run the Application
 
 To run both the frontend and backend in a local development environment:
 
@@ -475,6 +500,14 @@ urlpatterns = [
 - Reload the window: `CMD+Shift+P` → "Developer: Reload Window"
 - Verify Python interpreter is set correctly
 - Check that `python.analysis.extraPaths` includes `"backend"` in `.vscode/settings.json`
+
+### Node.js Version Issues
+
+- **"Unsupported engine" warnings**: Update Node.js to version 20.19.0+ or 22.12.0+
+  - Check current version: `node --version`
+  - Download the latest LTS version from [nodejs.org](https://nodejs.org/)
+  - If using `nvm`, run: `nvm install 20.19.0` or `nvm install 22.12.0`
+  - After updating, delete `node_modules` and `package-lock.json`, then run `npm ci` again
 
 ---
 
