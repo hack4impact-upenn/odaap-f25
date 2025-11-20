@@ -55,10 +55,22 @@ class UserModuleGrade(models.Model):
     score = models.IntegerField(null=True, blank=True)
     total = models.IntegerField(null=True, blank=True)
 
-# TODO: Create Question model before uncommenting this
-# class UserQuestionGrade(models.Model):
-#     question = models.ForeignKey(Question, on_delete=models.CASCADE)
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     score = models.IntegerField(null=True, blank=True)
-#     total = models.IntegerField(null=True, blank=True)
-#     is_overdue = models.BooleanField(default=False)
+class Question(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    question_text = models.TextField()
+    question_type = models.TextField()
+    question_order = models.IntegerField()
+    score_total = models.IntegerField(default=0)
+
+    def __str__(self):
+        return self.question_text
+
+class UserQuestionGrade(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    score = models.IntegerField(null=True, blank=True)
+    total = models.IntegerField(null=True, blank=True)
+    is_overdue = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.question.question_text
