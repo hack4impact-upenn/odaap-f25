@@ -9,7 +9,7 @@ class CourseSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'course_name',
-            'course_descrp',
+            'course_description',
             'zoom_link',
             'score_total'
         ]
@@ -21,7 +21,7 @@ class ModuleSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'module_name',
-            'module_descrp',
+            'module_description',
             'module_order',
             'score_total',
             'is_posted'
@@ -34,7 +34,8 @@ class QuestionSerializer(serializers.ModelSerializer):
             'id',
             'question_text',
             'question_order',
-            'score_total'
+            'score_total',
+            'question_type'
         ]
 
 class SubmissionSerializer(serializers.ModelSerializer):
@@ -44,7 +45,10 @@ class SubmissionSerializer(serializers.ModelSerializer):
             'id',
             'submission_text',
             'submission_order',
-            'score_total'
+            'score_total',
+            'submission_type',
+            'submission_response',
+            'time_submitted'
         ]
 
 class UserModuleGradeSerializer(serializers.ModelSerializer):
