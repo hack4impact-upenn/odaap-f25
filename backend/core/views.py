@@ -17,19 +17,10 @@ class CourseViewSet(viewsets.ModelViewSet):
         
         # Check if user is a student (field is isStudent, not is_student)
         if user.isStudent:
-            # Get courses where user is a student
-            # Django creates reverse relationship: CourseToStudents has ForeignKey to Course,
-            # so we can query Course.objects.filter(coursetostudents__user=user)
-            # This is equivalent to: get all Courses that have a CourseToStudents entry with this user
             return Course.objects.filter(coursetostudents__user=user).distinct()
             
-            # Alternative approach (less efficient, but shows the relationship):
-            # course_students = CourseToStudents.objects.filter(user=user)
-            # course_ids = [cs.course_id for cs in course_students]
-            # return Course.objects.filter(id__in=course_ids)
         else:  # teacher
             # Get courses where user is a teacher
-            # Same concept: query Course backwards through CourseToTeachers relationship
             return Course.objects.filter(coursetoteachers__user=user).distinct()
     
     @action(detail=True, methods=['get'], url_path='modules')
@@ -37,9 +28,36 @@ class CourseViewSet(viewsets.ModelViewSet):
         """
         Get all modules for a specific course.
         Usage: GET /api/courses/{course_id}/modules/
+        
+        The course_id is automatically available as 'pk' parameter.
         """
-        course = self.get_object()  # Gets the course by pk
-        modules = Module.objects.filter(course=course)
+        # Get course_id from URL parameter
+        course_id = pk
+        
+        # see if course exists
+        try:
+            course = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            return Response(
+                {"error": "Course not found"}, 
+                status=404
+            )
+        
+        # Verify user has access to this course
+        user = self.request.user
+        if user.isStudent:
+            has_access = CourseToStudents.objects.filter(course=course, user=user).exists()
+        else:
+            has_access = CourseToTeachers.objects.filter(course=course, user=user).exists()
+        
+        if not has_access:
+            return Response(
+                {"error": "You don't have access to this course"}, 
+                status=403
+            )
+        
+        # Get modules for this course
+        modules = Module.objects.filter(course=course).order_by('module_order')
         serializer = ModuleSerializer(modules, many=True)
         return Response(serializer.data)
 
