@@ -1,0 +1,173 @@
+.teacher-main {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.teacher-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.teacher-nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 24px;
+}
+
+.teacher-nav button {
+  padding: 12px 24px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  transition: all 0.3s;
+  margin-bottom: -2px;
+}
+
+.teacher-nav button:hover {
+  color: #333;
+}
+
+.teacher-nav button.active {
+  color: #9c27b0;
+  border-bottom-color: #9c27b0;
+  font-weight: 600;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 16px 0;
+}
+
+.module-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.progress-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #9c27b0;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.students-section,
+.teachers-section {
+  margin-top: 32px;
+}
+
+.students-list,
+.teachers-list {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.student-item,
+.teacher-item {
+  padding: 16px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.student-item:last-child,
+.teacher-item:last-child {
+  border-bottom: none;
+}
+
+.student-info,
+.teacher-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.student-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.student-info h4,
+.teacher-item h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.student-info p,
+.teacher-item p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.student-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.grade {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.status {
+  font-size: 12px;
+  color: #4caf50;
+}
+
+.create-button {
+  padding: 12px 24px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 16px;
+  margin-bottom: 24px;
+  transition: background 0.3s;
+}
+
+.create-button:hover {
+  background: #7b1fa2;
+}
+
