@@ -1,0 +1,228 @@
+.teacher-modules {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.modules-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.teacher-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
+}
+
+.teacher-nav button {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.teacher-nav button:hover {
+  background: #f0f0f0;
+}
+
+.teacher-nav button.active {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.modules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.modules-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.create-button {
+  padding: 10px 20px;
+  background: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.create-button:hover {
+  background: #555;
+}
+
+.modules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.module-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e0e0e0;
+}
+
+.module-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.module-info {
+  flex: 1;
+}
+
+.module-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px 0;
+}
+
+.module-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 12px 0;
+}
+
+.module-meta {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.due-date {
+  color: #666;
+}
+
+.questions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #9c27b0;
+  padding: 0;
+}
+
+.questions-toggle:hover {
+  text-decoration: underline;
+}
+
+.toggle-arrow {
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+.toggle-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+.module-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-edit {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.btn-edit:hover {
+  background: #f5f5f5;
+}
+
+.btn-post {
+  padding: 8px 16px;
+  background: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-post:hover {
+  background: #ffb300;
+}
+
+.posted-badge {
+  padding: 6px 12px;
+  background: #4caf50;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.questions-list {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.question-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.question-number {
+  font-weight: 600;
+  color: #9c27b0;
+  min-width: 24px;
+}
+
+.question-text {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+}
+
+.question-type {
+  padding: 4px 8px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}

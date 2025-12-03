@@ -1,0 +1,166 @@
+.teacher-settings {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.settings-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.teacher-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
+}
+
+.teacher-nav button {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.teacher-nav button:hover {
+  background: #f0f0f0;
+}
+
+.teacher-nav button.active {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.settings-content h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 24px 0;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 24px;
+}
+
+.settings-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e0e0e0;
+}
+
+.settings-card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 16px 0;
+}
+
+.student-code-card {
+  background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+}
+
+.teacher-code-card {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.zoom-card {
+  grid-column: 1 / -1;
+}
+
+.zoom-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+}
+
+.code-display {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.code-input {
+  flex: 1;
+  padding: 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+}
+
+.copy-button {
+  padding: 12px 20px;
+  background: #666;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.copy-button:hover {
+  background: #555;
+}
+
+.zoom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.zoom-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zoom-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.zoom-form input {
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.zoom-form input:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.update-zoom-button {
+  padding: 12px 24px;
+  background: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.update-zoom-button:hover {
+  background: #555;
+}

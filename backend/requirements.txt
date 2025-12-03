@@ -8,6 +8,7 @@ django-cors-headers==4.9.0
 django-ses==3.5.1
 django-storages==1.14.6
 djangorestframework==3.16.1
+djangorestframework-simplejwt==5.3.1
 gunicorn==23.0.0
 iniconfig==2.3.0
 jmespath==1.0.1

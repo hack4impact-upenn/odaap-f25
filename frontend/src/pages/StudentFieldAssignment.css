@@ -1,0 +1,124 @@
+.field-assignment {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.field-content {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.back-button {
+  background: transparent;
+  border: none;
+  color: #9c27b0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 0;
+}
+
+.back-button:hover {
+  text-decoration: underline;
+}
+
+.due-date {
+  font-size: 14px;
+  color: #666;
+}
+
+.assignment-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 32px 0;
+}
+
+.prompt-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.prompt-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 12px 0;
+}
+
+.prompt-text {
+  font-size: 16px;
+  color: #333;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.file-upload-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.file-input {
+  display: none;
+}
+
+.file-upload-label {
+  display: block;
+  cursor: pointer;
+}
+
+.file-upload-button {
+  display: inline-block;
+  padding: 12px 24px;
+  background: #9c27b0;
+  color: white;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: background 0.3s;
+}
+
+.file-upload-button:hover {
+  background: #7b1fa2;
+}
+
+.file-name {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #666;
+}
+
+.submit-section {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submit-button {
+  padding: 14px 32px;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  transition: background 0.3s;
+}
+
+.submit-button:hover {
+  background: #45a049;
+}
+

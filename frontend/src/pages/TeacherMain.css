@@ -1,0 +1,210 @@
+.teacher-main {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.teacher-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.teacher-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
+}
+
+.teacher-nav button {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.teacher-nav button:hover {
+  background: #f0f0f0;
+}
+
+.teacher-nav button.active {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.overview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e0e0e0;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 20px 0;
+}
+
+/* Module Completion Card */
+.module-completion-card {
+  margin-bottom: 24px;
+}
+
+.module-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.module-progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.module-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.module-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.progress-percentage {
+  font-weight: 600;
+  color: #9c27b0;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #9c27b0;
+  transition: width 0.3s;
+}
+
+/* Students Card */
+.students-card {
+  margin-bottom: 24px;
+}
+
+.students-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.student-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.student-info {
+  flex: 1;
+}
+
+.student-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 4px 0;
+}
+
+.student-email {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.student-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.grade {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status.no-overdue {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status.overdue {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* Teachers Card */
+.teachers-card {
+  margin-bottom: 24px;
+}
+
+.teachers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.teacher-item {
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.teacher-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 4px 0;
+}
+
+.teacher-email {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.grading-tab-content {
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
