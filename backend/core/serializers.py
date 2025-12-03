@@ -62,6 +62,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 # MAIN SERIALIZERS
 # ============================================================================
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'isStudent']
+
 class CourseSerializer(serializers.ModelSerializer):
     
     class Meta:
@@ -78,11 +83,13 @@ class CourseSerializer(serializers.ModelSerializer):
 class ModuleSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source='course.id', read_only=True)
     course_name = serializers.CharField(source='course.course_name', read_only=True)
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all(), write_only=True, required=False)
     
     class Meta:
         model = Module
         fields = [
             'id',
+            'course',
             'course_id',
             'course_name',
             'module_name',
@@ -102,6 +109,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         fields = [
             'id',
+            'module',
             'module_id',
             'question_text',
             'question_type',
@@ -110,6 +118,7 @@ class QuestionSerializer(serializers.ModelSerializer):
             'score_total',
             'correct_answers'
         ]
+        read_only_fields = ['module_id']
     
     def get_correct_answers(self, obj):
         """Get all correct answers for this question"""
@@ -127,9 +136,12 @@ class SubmissionSerializer(serializers.ModelSerializer):
         model = Submission
         fields = [
             'id',
+            'user',
             'user_id',
             'user_name',
+            'module',
             'module_id',
+            'question',
             'question_id',
             'question_text',
             'submission_type',
@@ -137,7 +149,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
             'time_submitted',
             'grade'
         ]
-        read_only_fields = ['time_submitted']
+        read_only_fields = ['time_submitted', 'user_id', 'module_id', 'question_id', 'user_name', 'question_text', 'grade']
     
     def get_grade(self, obj):
         """Get grade for this submission if it exists"""

@@ -9,6 +9,35 @@
   padding: 24px;
 }
 
+.teacher-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
+}
+
+.teacher-nav button {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.teacher-nav button:hover {
+  background: #f0f0f0;
+}
+
+.teacher-nav button.active {
+  background: #e0e0e0;
+  color: #333;
+}
+
 .announcements-header {
   display: flex;
   justify-content: space-between;
@@ -17,26 +46,26 @@
 }
 
 .announcements-header h1 {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
   color: #333;
   margin: 0;
 }
 
 .create-button {
-  padding: 12px 24px;
-  background: #9c27b0;
+  padding: 10px 20px;
+  background: #333;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  font-size: 14px;
   font-weight: 500;
-  font-size: 16px;
-  transition: background 0.3s;
+  transition: all 0.2s;
 }
 
 .create-button:hover {
-  background: #7b1fa2;
+  background: #555;
 }
 
 .announcements-list {
@@ -45,14 +74,28 @@
   gap: 16px;
 }
 
-.announcement-card {
+.no-announcements {
+  padding: 48px;
+  text-align: center;
   background: white;
   border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+}
+
+.no-announcements p {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+}
+
+.announcement-card {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  background: #e3f2fd;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
 }
 
 .announcement-content {
@@ -60,15 +103,16 @@
 }
 
 .announcement-content h3 {
-  margin: 0 0 8px 0;
   font-size: 18px;
+  font-weight: 600;
   color: #333;
+  margin: 0 0 8px 0;
 }
 
 .announcement-content p {
-  margin: 0 0 8px 0;
-  color: #666;
   font-size: 14px;
+  color: #666;
+  margin: 0 0 12px 0;
 }
 
 .announcement-date {
@@ -78,11 +122,11 @@
 }
 
 .posted-badge {
-  background: #e8f5e9;
-  color: #4caf50;
   padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  background: #4caf50;
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -93,10 +137,11 @@
   font-size: 18px;
   opacity: 0.6;
   padding: 8px;
-  transition: opacity 0.3s;
+  transition: all 0.2s;
 }
 
 .delete-btn:hover {
   opacity: 1;
+  background: #ffebee;
+  border-radius: 4px;
 }
-

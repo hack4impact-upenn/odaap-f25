@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { 
-  Course, Module, Question, Submission,
+  Course, Module, Question, Submission, User,
   LoginCredentials, RegisterData, AuthResponse 
 } from '../types';
 
@@ -115,12 +115,22 @@ export const courseAPI = {
   },
 
   updateZoomLink: async (courseId: number, zoomLink: string): Promise<Course> => {
-    const response = await api.put(`/courses/${courseId}/zoom`, { zoom_link: zoomLink });
+    const response = await api.put(`/courses/${courseId}/zoom/`, { zoom_link: zoomLink });
     return response.data;
   },
 
   getModules: async (courseId: number): Promise<Module[]> => {
     const response = await api.get(`/courses/${courseId}/modules/`);
+    return response.data;
+  },
+
+  getStudents: async (courseId: number): Promise<User[]> => {
+    const response = await api.get(`/courses/${courseId}/students/`);
+    return response.data;
+  },
+
+  getTeachers: async (courseId: number): Promise<User[]> => {
+    const response = await api.get(`/courses/${courseId}/teachers/`);
     return response.data;
   },
 };
@@ -157,8 +167,13 @@ export const moduleAPI = {
     return response.data;
   },
 
+  checkAccessibility: async (moduleId: number): Promise<{ is_accessible: boolean; is_completed: boolean; is_posted: boolean }> => {
+    const response = await api.get(`/modules/${moduleId}/is-accessible`);
+    return response.data;
+  },
+
   createQuestion: async (moduleId: number, question: Partial<Question>): Promise<Question> => {
-    const response = await api.post(`/modules/${moduleId}/question`, question);
+    const response = await api.post(`/modules/${moduleId}/question/`, question);
     return response.data;
   },
 };

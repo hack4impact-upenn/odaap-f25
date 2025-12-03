@@ -11,58 +11,84 @@
 
 .teacher-nav {
   display: flex;
-  gap: 0;
-  border-bottom: 2px solid #e0e0e0;
-  margin-bottom: 24px;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
 }
 
 .teacher-nav button {
-  padding: 12px 24px;
-  border: none;
+  padding: 10px 20px;
   background: transparent;
+  border: none;
+  border-radius: 20px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 500;
   color: #666;
-  border-bottom: 2px solid transparent;
-  transition: all 0.3s;
-  margin-bottom: -2px;
+  transition: all 0.2s;
 }
 
 .teacher-nav button:hover {
-  color: #333;
+  background: #f0f0f0;
 }
 
 .teacher-nav button.active {
-  color: #9c27b0;
-  border-bottom-color: #9c27b0;
-  font-weight: 600;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
+  background: #e0e0e0;
   color: #333;
-  margin: 0 0 16px 0;
 }
 
-.module-progress-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
+.overview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.progress-card {
+.card {
   background: white;
   border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  border: 1px solid #e0e0e0;
 }
 
-.progress-card h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
   color: #333;
+  margin: 0 0 20px 0;
+}
+
+/* Module Completion Card */
+.module-completion-card {
+  margin-bottom: 24px;
+}
+
+.module-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.module-progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.module-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.module-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.progress-percentage {
+  font-weight: 600;
+  color: #9c27b0;
 }
 
 .progress-bar-container {
@@ -71,7 +97,6 @@
   background: #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
-  margin-bottom: 8px;
 }
 
 .progress-bar {
@@ -80,94 +105,106 @@
   transition: width 0.3s;
 }
 
-.progress-text {
-  font-size: 12px;
-  color: #666;
+/* Students Card */
+.students-card {
+  margin-bottom: 24px;
 }
 
-.students-section,
-.teachers-section {
-  margin-top: 32px;
-}
-
-.students-list,
-.teachers-list {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.student-item,
-.teacher-item {
-  padding: 16px 0;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.student-item:last-child,
-.teacher-item:last-child {
-  border-bottom: none;
-}
-
-.student-info,
-.teacher-item {
+.students-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 16px;
 }
 
 .student-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
 }
 
-.student-info h4,
-.teacher-item h4 {
-  margin: 0;
+.student-info {
+  flex: 1;
+}
+
+.student-name {
   font-size: 16px;
+  font-weight: 600;
   color: #333;
+  margin: 0 0 4px 0;
 }
 
-.student-info p,
-.teacher-item p {
-  margin: 0;
+.student-email {
   font-size: 14px;
   color: #666;
+  margin: 0;
 }
 
 .student-stats {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 8px;
 }
 
 .grade {
   font-size: 14px;
-  color: #333;
   font-weight: 500;
+  color: #333;
 }
 
 .status {
+  padding: 4px 12px;
+  border-radius: 12px;
   font-size: 12px;
-  color: #4caf50;
-}
-
-.create-button {
-  padding: 12px 24px;
-  background: #9c27b0;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
   font-weight: 500;
-  font-size: 16px;
+}
+
+.status.no-overdue {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status.overdue {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* Teachers Card */
+.teachers-card {
   margin-bottom: 24px;
-  transition: background 0.3s;
 }
 
-.create-button:hover {
-  background: #7b1fa2;
+.teachers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
+.teacher-item {
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.teacher-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 4px 0;
+}
+
+.teacher-email {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.grading-tab-content {
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}

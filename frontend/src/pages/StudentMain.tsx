@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, submissionAPI } from '../services/api';
+import { courseAPI, submissionAPI, moduleAPI } from '../services/api';
 import type { Course, Module, Submission } from '../types';
 import './StudentMain.css';
 
@@ -22,6 +22,8 @@ const StudentMain: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [submissions, setSubmissions] = useState<Record<number, Submission[]>>({});
+  const [moduleQuestions, setModuleQuestions] = useState<Record<number, number>>({}); // module_id -> question_count
+  const [moduleAccessibility, setModuleAccessibility] = useState<Record<number, { is_accessible: boolean; is_completed: boolean }>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,22 +42,76 @@ const StudentMain: React.FC = () => {
       const enrolledCourses = await courseAPI.getEnrolledCourses(user.id);
       setCourses(enrolledCourses);
 
-      if (enrolledCourses.length > 0) {
+        if (enrolledCourses.length > 0) {
         // Load modules for the first course (or you could show all)
         const courseModules = await courseAPI.getModules(enrolledCourses[0].id);
         setModules(courseModules.sort((a, b) => a.module_order - b.module_order));
 
-        // Load submissions for all modules
+        // Load submissions and question counts for all modules
         const submissionsMap: Record<number, Submission[]> = {};
+        const questionsMap: Record<number, number> = {};
+        
+        const accessibilityMap: Record<number, { is_accessible: boolean; is_completed: boolean }> = {};
+        
         for (const module of courseModules) {
           try {
+            // Get submissions
             const moduleSubmissions = await submissionAPI.getAll(undefined, module.id);
             submissionsMap[module.id] = moduleSubmissions.filter(s => s.user_id === user.id);
+            
+            // Check module accessibility first (only for students)
+            if (user.isStudent) {
+              try {
+                const accessibility = await moduleAPI.checkAccessibility(module.id);
+                accessibilityMap[module.id] = {
+                  is_accessible: accessibility.is_accessible,
+                  is_completed: accessibility.is_completed
+                };
+                
+                // Only get questions if module is accessible
+                if (accessibility.is_accessible) {
+                  try {
+                    const questions = await moduleAPI.getQuestions(module.id);
+                    questionsMap[module.id] = questions.length;
+                  } catch (error) {
+                    questionsMap[module.id] = 0;
+                  }
+                } else {
+                  questionsMap[module.id] = 0;
+                }
+              } catch (error) {
+                // If check fails, assume not accessible
+                accessibilityMap[module.id] = {
+                  is_accessible: false,
+                  is_completed: false
+                };
+                questionsMap[module.id] = 0;
+              }
+            } else {
+              // Teachers can always access
+              accessibilityMap[module.id] = {
+                is_accessible: true,
+                is_completed: false
+              };
+              try {
+                const questions = await moduleAPI.getQuestions(module.id);
+                questionsMap[module.id] = questions.length;
+              } catch (error) {
+                questionsMap[module.id] = 0;
+              }
+            }
           } catch (error) {
             submissionsMap[module.id] = [];
+            questionsMap[module.id] = 0;
+            accessibilityMap[module.id] = {
+              is_accessible: false,
+              is_completed: false
+            };
           }
         }
         setSubmissions(submissionsMap);
+        setModuleQuestions(questionsMap);
+        setModuleAccessibility(accessibilityMap);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -66,15 +122,22 @@ const StudentMain: React.FC = () => {
 
   const getModuleStatus = (module: Module) => {
     const moduleSubmissions = submissions[module.id] || [];
-    const hasSubmissions = moduleSubmissions.length > 0;
+    const questionCount = moduleQuestions[module.id] || 0;
+    const submissionCount = moduleSubmissions.length;
+    const allQuestionsSubmitted = questionCount > 0 && submissionCount >= questionCount;
+    const accessibility = moduleAccessibility[module.id];
+    
+    // Check if module is accessible (sequential requirement)
+    if (accessibility && !accessibility.is_accessible) {
+      return { status: 'locked', label: 'Locked - Complete previous modules', icon: '🔒' };
+    }
     
     if (!module.is_posted) {
       return { status: 'locked', label: 'Locked', icon: '🔒' };
     }
     
-    if (hasSubmissions) {
-      // Check if all questions have submissions
-      // For now, if there are any submissions, consider it completed
+    if (allQuestionsSubmitted) {
+      // All questions have submissions
       const totalScore = moduleSubmissions.reduce((sum, sub) => {
         return sum + (sub.grade?.score || 0);
       }, 0);
@@ -113,8 +176,23 @@ const StudentMain: React.FC = () => {
   }
 
   const currentCourse = courses[0]; // Use first course for now
-  const upcomingModules = modules.filter(m => m.is_posted && !submissions[m.id]?.length).slice(0, 1);
-  const upcomingAssignment = upcomingModules[0];
+  
+  // Get upcoming assignments: modules that are posted and not fully completed
+  const upcomingModules = modules.filter(m => {
+    if (!m.is_posted) return false;
+    const moduleSubmissions = submissions[m.id] || [];
+    const questionCount = moduleQuestions[m.id] || 0;
+    const submissionCount = moduleSubmissions.length;
+    return questionCount === 0 || submissionCount < questionCount;
+  }).sort((a, b) => {
+    // Sort by due date if available, then by module_order
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    }
+    return a.module_order - b.module_order;
+  });
+  
+  const upcomingCount = upcomingModules.length;
 
   return (
     <div className="student-main">
@@ -144,37 +222,54 @@ const StudentMain: React.FC = () => {
           {/* Right Column */}
           <div className="right-column">
             {/* Weekly Zoom Meeting Link Card */}
-            {currentCourse?.zoom_link && (
+            {currentCourse && (
               <div className="card zoom-card">
                 <h3 className="card-title">Weekly Zoom Meeting Link</h3>
                 <p className="zoom-schedule">Every Friday, Saturday (2:00 - 3:00 pm)</p>
-                <button 
-                  className="zoom-button"
-                  onClick={() => window.open(currentCourse.zoom_link, '_blank')}
-                >
-                  Join Meeting
-                  <span className="icon-arrow">→</span>
-                </button>
+                {currentCourse.zoom_link ? (
+                  <button 
+                    className="zoom-button"
+                    onClick={() => {
+                      // Ensure the zoom link is a valid URL
+                      let zoomUrl = currentCourse.zoom_link;
+                      // If it doesn't start with http, add https://
+                      if (zoomUrl && !zoomUrl.startsWith('http://') && !zoomUrl.startsWith('https://')) {
+                        zoomUrl = 'https://' + zoomUrl;
+                      }
+                      if (zoomUrl) {
+                        window.open(zoomUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  >
+                    Join Meeting
+                    <span className="icon-arrow">→</span>
+                  </button>
+                ) : (
+                  <p className="zoom-unavailable">Zoom link not set. Please contact your teacher.</p>
+                )}
               </div>
             )}
 
             {/* Upcoming Assignments Card */}
             <div className="card assignments-card">
               <h3 className="card-title">Upcoming Assignments</h3>
-              {upcomingAssignment ? (
+              {upcomingCount > 0 ? (
                 <>
-                  <p className="assignment-count">1 assignment to complete</p>
-                  <div 
-                    className="assignment-item clickable"
-                    onClick={() => navigate(`/student/hw/${upcomingAssignment.id}`)}
-                  >
-                    <h4 className="assignment-name">{upcomingAssignment.module_name}</h4>
-                    <p className="assignment-description">{upcomingAssignment.module_description || 'Description'}</p>
-                    <div className="assignment-due">
-                      <span className="icon-clock">🕐</span>
-                      <span>Due: {upcomingAssignment.due_date ? formatDate(upcomingAssignment.due_date) : 'TBD'}</span>
+                  <p className="assignment-count">{upcomingCount} assignment{upcomingCount !== 1 ? 's' : ''} to complete</p>
+                  {upcomingModules.slice(0, 3).map((module) => (
+                    <div 
+                      key={module.id}
+                      className="assignment-item clickable"
+                      onClick={() => navigate(`/student/hw/${module.id}`)}
+                    >
+                      <h4 className="assignment-name">{module.module_name}</h4>
+                      <p className="assignment-description">{module.module_description || 'Description'}</p>
+                      <div className="assignment-due">
+                        <span className="icon-clock">🕐</span>
+                        <span>Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </>
               ) : (
                 <p className="assignment-count">No upcoming assignments</p>

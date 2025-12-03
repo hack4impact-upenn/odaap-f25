@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, moduleAPI } from '../services/api';
-import type { Course, Module } from '../types';
+import { courseAPI, moduleAPI, questionAPI } from '../services/api';
+import type { Module, Question } from '../types';
 import './TeacherModules.css';
 
 const TeacherModules: React.FC = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
+  const [moduleQuestions, setModuleQuestions] = useState<Record<number, Question[]>>({});
+  const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -28,7 +29,6 @@ const TeacherModules: React.FC = () => {
     try {
       if (user) {
         const enrolledCourses = await courseAPI.getEnrolledCourses(user.id);
-        setCourses(enrolledCourses);
         if (enrolledCourses.length > 0) {
           setSelectedCourse(enrolledCourses[0].id);
         }
@@ -43,10 +43,35 @@ const TeacherModules: React.FC = () => {
   const loadModules = async (courseId: number) => {
     try {
       const courseModules = await moduleAPI.getAll(courseId);
-      setModules(courseModules.sort((a, b) => a.module_order - b.module_order));
+      const sortedModules = courseModules.sort((a, b) => a.module_order - b.module_order);
+      setModules(sortedModules);
+      
+      // Load questions for all modules
+      const questionsMap: Record<number, Question[]> = {};
+      for (const module of sortedModules) {
+        try {
+          const questions = await questionAPI.getAll(module.id);
+          questionsMap[module.id] = questions.sort((a, b) => a.question_order - b.question_order);
+        } catch (error) {
+          questionsMap[module.id] = [];
+        }
+      }
+      setModuleQuestions(questionsMap);
     } catch (error) {
       console.error('Error loading modules:', error);
     }
+  };
+
+  const toggleModuleExpansion = (moduleId: number) => {
+    setExpandedModules(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(moduleId)) {
+        newSet.delete(moduleId);
+      } else {
+        newSet.add(moduleId);
+      }
+      return newSet;
+    });
   };
 
   const handlePostModule = async (moduleId: number) => {
@@ -54,26 +79,47 @@ const TeacherModules: React.FC = () => {
       const module = modules.find(m => m.id === moduleId);
       if (module) {
         await moduleAPI.update(moduleId, { ...module, is_posted: true });
-        loadModules(selectedCourse!);
+        await loadModules(selectedCourse!);
       }
     } catch (error) {
       console.error('Error posting module:', error);
+      alert('Error posting module');
     }
   };
 
-  const handleDeleteModule = async (moduleId: number) => {
-    if (window.confirm('Are you sure you want to delete this module?')) {
-      try {
-        await moduleAPI.delete(moduleId);
-        loadModules(selectedCourse!);
-      } catch (error) {
-        console.error('Error deleting module:', error);
-      }
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'TBD';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getQuestionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'multiple_choice':
+        return 'MC';
+      case 'written':
+      case 'audio':
+        return '📝';
+      case 'video':
+        return '🎥';
+      default:
+        return '📝';
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="teacher-modules">
+        <Header />
+        <div className="modules-content">
+          <div>Loading...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -81,13 +127,51 @@ const TeacherModules: React.FC = () => {
       <Header />
       
       <div className="modules-content">
+        <nav className="teacher-nav">
+          <button onClick={() => navigate('/')}>
+            📊 Overview
+          </button>
+          <button className="active">
+            🎓 Modules
+          </button>
+          <button onClick={() => navigate('/teacher/announcements')}>
+            📢 Announcements
+          </button>
+          <button onClick={() => navigate('/')}>
+            ✓ Grading
+          </button>
+          <button onClick={() => navigate('/teacher/settings')}>
+            ⚙️ Settings
+          </button>
+        </nav>
+
         <div className="modules-header">
           <h1>Course Modules</h1>
           <button 
             className="create-button"
-            onClick={() => {
-              // TODO: Open create module modal or navigate to create page
-              alert('Create module functionality coming soon');
+            onClick={async () => {
+              try {
+                if (!selectedCourse) {
+                  alert('Please select a course first');
+                  return;
+                }
+                
+                // Create a new module
+                const newModule = await moduleAPI.create({
+                  course: selectedCourse,
+                  module_name: `Module ${modules.length + 1}`,
+                  module_description: 'Description of the module',
+                  module_order: modules.length + 1,
+                  score_total: 100,
+                  is_posted: false,
+                } as any);
+                
+                // Navigate to edit page
+                navigate(`/teacher/modules/${newModule.id}/edit`);
+              } catch (error) {
+                console.error('Error creating module:', error);
+                alert('Error creating module');
+              }
             }}
           >
             + Create Module
@@ -96,54 +180,65 @@ const TeacherModules: React.FC = () => {
 
         {selectedCourse && (
           <div className="modules-list">
-            {modules.map((module) => (
-              <div key={module.id} className="module-card">
-                <div className="module-header">
-                  <div>
-                    <h3>{module.module_name}</h3>
-                    <p className="module-description">
-                      {module.module_description || 'Description of the module'}
-                    </p>
-                    <div className="module-meta">
-                      <span>Due: {new Date().toLocaleDateString()}</span>
-                      <span>Questions: {0}</span>
-                      {module.is_posted && <span className="posted-badge">Posted</span>}
+            {modules.map((module) => {
+              const questions = moduleQuestions[module.id] || [];
+              const isExpanded = expandedModules.has(module.id);
+              
+              return (
+                <div key={module.id} className="module-card">
+                  <div className="module-header">
+                    <div className="module-info">
+                      <h3 className="module-title">{module.module_name}</h3>
+                      <p className="module-description">
+                        {module.module_description || 'Description of the module'}
+                      </p>
+                      <div className="module-meta">
+                        <span className="due-date">Due: {formatDate(module.due_date)}</span>
+                        <button 
+                          className="questions-toggle"
+                          onClick={() => toggleModuleExpansion(module.id)}
+                        >
+                          Questions ({questions.length})
+                          <span className={`toggle-arrow ${isExpanded ? 'expanded' : ''}`}>
+                            {isExpanded ? '▲' : '▼'}
+                          </span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="module-actions">
-                    {module.is_posted ? (
+                    <div className="module-actions">
                       <button 
                         className="btn-edit"
                         onClick={() => navigate(`/teacher/modules/${module.id}/edit`)}
                       >
-                        Edit
+                        ✏️ Edit
                       </button>
-                    ) : (
-                      <>
+                      {module.is_posted ? (
+                        <span className="posted-badge">Posted</span>
+                      ) : (
                         <button 
                           className="btn-post"
                           onClick={() => handlePostModule(module.id)}
                         >
                           Post to Students
                         </button>
-                        <button 
-                          className="btn-edit"
-                          onClick={() => navigate(`/teacher/modules/${module.id}/edit`)}
-                        >
-                          Edit
-                        </button>
-                      </>
-                    )}
-                    <button 
-                      className="btn-delete"
-                      onClick={() => handleDeleteModule(module.id)}
-                    >
-                      🗑️
-                    </button>
+                      )}
+                    </div>
                   </div>
+                  
+                  {isExpanded && questions.length > 0 && (
+                    <div className="questions-list">
+                      {questions.map((question, index) => (
+                        <div key={question.id} className="question-item">
+                          <span className="question-number">{index + 1}.</span>
+                          <span className="question-text">{question.question_text}</span>
+                          <span className="question-type">{getQuestionTypeIcon(question.question_type)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -152,4 +247,3 @@ const TeacherModules: React.FC = () => {
 };
 
 export default TeacherModules;
-
