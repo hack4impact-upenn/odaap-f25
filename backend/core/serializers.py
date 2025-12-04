@@ -3,7 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
-from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers
+from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers, Announcement
 
 User = get_user_model()
 
@@ -162,6 +162,25 @@ class SubmissionSerializer(serializers.ModelSerializer):
             }
         except UserQuestionGrade.DoesNotExist:
             return None
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+    
+    class Meta:
+        model = Announcement
+        fields = [
+            'id',
+            'course',
+            'course_id',
+            'title',
+            'content',
+            'created_by',
+            'created_by_name',
+            'created_at',
+            'is_posted'
+        ]
+        read_only_fields = ['created_by', 'created_at']
 
 class UserModuleGradeSerializer(serializers.ModelSerializer):
     class Meta:

@@ -76,3 +76,15 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface Announcement {
+  id: number;
+  course: number;
+  course_id: number;
+  title: string;
+  content: string;
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+  is_posted: boolean;
+}
+

@@ -9,11 +9,11 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import (
     Course, CourseToStudents, CourseToTeachers, Module, Question, 
-    Submission, UserQuestionGrade, QuestionToCorrectAnswers, User
+    Submission, UserQuestionGrade, QuestionToCorrectAnswers, User, Announcement
 )
 from .serializers import (
     CourseSerializer, ModuleSerializer, QuestionSerializer, 
-    SubmissionSerializer, UserSerializer
+    SubmissionSerializer, UserSerializer, AnnouncementSerializer
 )
 
 User = get_user_model()
@@ -596,7 +596,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(question)
         return Response(serializer.data)
-    
+
     def create(self, request, *args, **kwargs):
         """
         POST /api/questions/
@@ -882,3 +882,53 @@ class SubmissionViewSet(viewsets.ModelViewSet):
                 "is_overdue": grade.is_overdue
             }
         }, status=status.HTTP_200_OK)
+
+# ============================================================================
+# ANNOUNCEMENT VIEWSET
+# ============================================================================
+
+class AnnouncementViewSet(viewsets.ModelViewSet):
+    serializer_class = AnnouncementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Get announcements for courses the user is enrolled in"""
+        user = self.request.user
+        
+        # Filter by course_id if provided
+        course_id = self.request.query_params.get('course_id', None)
+        
+        if user.isStudent:
+            # Students see posted announcements for their courses
+            if course_id:
+                # Check if student is enrolled in this course
+                is_enrolled = CourseToStudents.objects.filter(
+                    course_id=course_id, user=user
+                ).exists()
+                if is_enrolled:
+                    return Announcement.objects.filter(
+                        course_id=course_id, is_posted=True
+                    )
+                return Announcement.objects.none()
+            else:
+                # Get all courses student is enrolled in
+                student_courses = Course.objects.filter(coursetostudents__user=user).distinct()
+                return Announcement.objects.filter(course__in=student_courses, is_posted=True)
+        else:
+            # Teachers see all announcements for their courses
+            if course_id:
+                # Check if teacher teaches this course
+                is_teacher = CourseToTeachers.objects.filter(
+                    course_id=course_id, user=user
+                ).exists()
+                if is_teacher:
+                    return Announcement.objects.filter(course_id=course_id)
+                return Announcement.objects.none()
+            else:
+                # Get all courses teacher teaches
+                teacher_courses = Course.objects.filter(coursetoteachers__user=user).distinct()
+                return Announcement.objects.filter(course__in=teacher_courses)
+
+    def perform_create(self, serializer):
+        """Set the creator when creating an announcement"""
+        serializer.save(created_by=self.request.user)

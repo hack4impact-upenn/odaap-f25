@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { 
-  Course, Module, Question, Submission, User,
+  Course, Module, Question, Submission, User, Announcement,
   LoginCredentials, RegisterData, AuthResponse 
 } from '../types';
 
@@ -259,6 +259,34 @@ export const submissionAPI = {
     is_overdue: boolean;
   }): Promise<void> => {
     await api.post(`/submissions/${submissionId}/grade`, grade);
+  },
+};
+
+// Announcement API
+export const announcementAPI = {
+  getAll: async (courseId?: number): Promise<Announcement[]> => {
+    const url = courseId ? `/announcements/?course_id=${courseId}` : '/announcements/';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<Announcement> => {
+    const response = await api.get(`/announcements/${id}/`);
+    return response.data;
+  },
+
+  create: async (announcement: Partial<Announcement>): Promise<Announcement> => {
+    const response = await api.post('/announcements/', announcement);
+    return response.data;
+  },
+
+  update: async (id: number, announcement: Partial<Announcement>): Promise<Announcement> => {
+    const response = await api.put(`/announcements/${id}/`, announcement);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/announcements/${id}/`);
   },
 };
 

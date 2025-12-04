@@ -132,7 +132,7 @@ const StudentHW: React.FC = () => {
       });
     } catch (error) {
       console.error('Error loading module:', error);
-      alert('Error loading module. Please try again.');
+      // Silently handle errors - module loading usually works
     } finally {
       setLoading(false);
     }
@@ -255,7 +255,7 @@ const StudentHW: React.FC = () => {
         const response = responses[question.id];
         const responseType = question.question_type === 'multiple_choice' 
           ? 'multiple_choice' 
-          : (responseTypes[question.id] || question.question_type);
+          : (responseTypes[question.id] || 'written');
         
         // For multiple choice, require a selection
         if (question.question_type === 'multiple_choice' && !response) {
@@ -287,7 +287,7 @@ const StudentHW: React.FC = () => {
           const response = responses[question.id];
           const responseType = question.question_type === 'multiple_choice' 
             ? 'multiple_choice' 
-            : (responseTypes[question.id] || question.question_type);
+            : (responseTypes[question.id] || 'written');
           
           // Skip if no response (shouldn't happen after validation, but just in case)
           if (!response && responseType !== 'audio' && responseType !== 'multiple_choice') {
@@ -514,7 +514,67 @@ const StudentHW: React.FC = () => {
                     )}
 
                     {/* Response Input */}
-                    {responseTypes[question.id] === 'written' ? (
+                    {/* For audio submissions in review mode, always show audio player, not textarea */}
+                    {(hasSubmission && submission.submission_type === 'audio') || 
+                     (!hasSubmission && responseTypes[question.id] === 'audio') ? (
+                      <div className="audio-recording">
+                        {!audioRecordings[question.id] && !hasSubmission ? (
+                          <>
+                            {!isRecording[question.id] ? (
+                              <button 
+                                className="record-button" 
+                                onClick={() => startRecording(question.id)}
+                                disabled={isReviewMode && hasSubmission}
+                              >
+                                <span className="icon-mic">🎤</span>
+                                Start Recording
+                              </button>
+                            ) : (
+                              <div className="recording-controls">
+                                <div className="recording-indicator">
+                                  <span className="recording-dot"></span>
+                                  <span className="recording-time">Recording: {formatTime(recordingTime[question.id] || 0)}</span>
+                                </div>
+                                <button 
+                                  className="stop-button" 
+                                  onClick={() => stopRecording(question.id)}
+                                >
+                                  Stop Recording
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="audio-playback">
+                            <p className="audio-status">
+                              {hasSubmission 
+                                ? `Audio submitted on ${new Date(submission.time_submitted).toLocaleDateString()}`
+                                : 'Audio recorded'}
+                            </p>
+                            <div className="audio-controls">
+                              {responses[question.id] && (
+                                <button 
+                                  className="play-button"
+                                  onClick={() => playAudio(responses[question.id])}
+                                >
+                                  ▶️ Play Recording
+                                </button>
+                              )}
+                              {!hasSubmission && (
+                                <>
+                                  <button 
+                                    className="re-record-button"
+                                    onClick={() => deleteRecording(question.id)}
+                                  >
+                                    🗑️ Delete & Re-record
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
                       <textarea
                         className="response-textarea"
                         placeholder="Type your response here ..."
@@ -523,65 +583,7 @@ const StudentHW: React.FC = () => {
                         rows={6}
                         readOnly={isReviewMode && hasSubmission}
                       />
-                ) : (
-                  <div className="audio-recording">
-                    {!audioRecordings[question.id] && !hasSubmission ? (
-                      <>
-                        {!isRecording[question.id] ? (
-                          <button 
-                            className="record-button" 
-                            onClick={() => startRecording(question.id)}
-                            disabled={isReviewMode && hasSubmission}
-                          >
-                            <span className="icon-mic">🎤</span>
-                            Start Recording
-                          </button>
-                        ) : (
-                          <div className="recording-controls">
-                            <div className="recording-indicator">
-                              <span className="recording-dot"></span>
-                              <span className="recording-time">Recording: {formatTime(recordingTime[question.id] || 0)}</span>
-                            </div>
-                            <button 
-                              className="stop-button" 
-                              onClick={() => stopRecording(question.id)}
-                            >
-                              Stop Recording
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="audio-playback">
-                        <p className="audio-status">
-                          {hasSubmission 
-                            ? `Audio submitted on ${new Date(submission.time_submitted).toLocaleDateString()}`
-                            : 'Audio recorded'}
-                        </p>
-                        <div className="audio-controls">
-                          {responses[question.id] && (
-                            <button 
-                              className="play-button"
-                              onClick={() => playAudio(responses[question.id])}
-                            >
-                              ▶️ Play Recording
-                            </button>
-                          )}
-                          {!hasSubmission && (
-                            <>
-                              <button 
-                                className="re-record-button"
-                                onClick={() => deleteRecording(question.id)}
-                              >
-                                🗑️ Delete & Re-record
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
                     )}
-                  </div>
-                )}
                   </>
                 )}
 

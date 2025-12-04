@@ -29,6 +29,22 @@ class Course(models.Model):
 
     def __str__(self):
         return self.course_name
+
+
+class Announcement(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='announcements')
+    title = models.TextField()
+    content = models.TextField()
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='announcements_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_posted = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "Announcements"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
         
 
 class Module(models.Model):

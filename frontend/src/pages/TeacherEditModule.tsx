@@ -41,6 +41,11 @@ const TeacherEditModule: React.FC = () => {
         is_posted: moduleData.is_posted,
         due_date: moduleData.due_date ? moduleData.due_date.split('T')[0] : '',
       });
+      
+      // If module is posted, show warning and prevent editing
+      if (moduleData.is_posted) {
+        alert('This module has been posted and cannot be edited. Students may have already started working on it.');
+      }
 
       const questionsData = await moduleAPI.getQuestions(Number(moduleId));
       const sortedQuestions = questionsData.sort((a, b) => a.question_order - b.question_order);
@@ -91,6 +96,10 @@ const TeacherEditModule: React.FC = () => {
   };
 
   const handleAddQuestion = async () => {
+    if (moduleData.is_posted) {
+      alert('Cannot add questions to a posted module. Modules can only be edited before they are posted to students.');
+      return;
+    }
     if (!moduleId) {
       alert('Module ID is missing. Please refresh the page.');
       return;
@@ -141,6 +150,11 @@ const TeacherEditModule: React.FC = () => {
   };
 
   const handleDeleteQuestion = async (questionId: number) => {
+    if (moduleData.is_posted) {
+      alert('Cannot delete questions from a posted module. Modules can only be edited before they are posted to students.');
+      return;
+    }
+    
     if (window.confirm('Are you sure you want to delete this question?')) {
       try {
         await questionAPI.delete(questionId);
@@ -173,6 +187,11 @@ const TeacherEditModule: React.FC = () => {
   };
 
   const handleUpdateQuestion = async (questionId: number) => {
+    if (moduleData.is_posted) {
+      alert('Cannot update questions in a posted module. Modules can only be edited before they are posted to students.');
+      return;
+    }
+    
     try {
       const questionData = editingQuestions[questionId];
       const question = questions.find(q => q.id === questionId);
@@ -205,6 +224,11 @@ const TeacherEditModule: React.FC = () => {
   };
 
   const handleUpdateModule = async () => {
+    if (moduleData.is_posted) {
+      alert('Cannot update a posted module. Modules can only be edited before they are posted to students.');
+      return;
+    }
+    
     try {
       const updateData: Partial<Module> = {
         ...moduleData,
@@ -262,6 +286,18 @@ const TeacherEditModule: React.FC = () => {
             ← Back to Modules
           </button>
           <h2 className="edit-title">Edit Module</h2>
+          {moduleData.is_posted && (
+            <div className="posted-warning" style={{ 
+              padding: '12px', 
+              background: '#fff3cd', 
+              border: '1px solid #ffc107', 
+              borderRadius: '8px', 
+              marginTop: '12px',
+              color: '#856404'
+            }}>
+              ⚠️ This module has been posted to students and cannot be edited. Students may have already started working on it.
+            </div>
+          )}
         </div>
 
         <div className="edit-form">
@@ -275,6 +311,7 @@ const TeacherEditModule: React.FC = () => {
                 value={moduleData.module_name}
                 onChange={(e) => handleModuleChange('module_name', e.target.value)}
                 placeholder="Module 2"
+                disabled={moduleData.is_posted}
               />
             </div>
 
@@ -285,7 +322,23 @@ const TeacherEditModule: React.FC = () => {
                 onChange={(e) => handleModuleChange('module_description', e.target.value)}
                 placeholder="Write a description here"
                 rows={4}
+                disabled={moduleData.is_posted}
               />
+            </div>
+
+            <div className="form-group">
+              <label>Module Order</label>
+              <input
+                type="number"
+                min="1"
+                value={moduleData.module_order}
+                onChange={(e) => handleModuleChange('module_order', parseInt(e.target.value) || 1)}
+                placeholder="1"
+                disabled={moduleData.is_posted}
+              />
+              <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '4px' }}>
+                Lower numbers appear first. This determines the sequence students see modules.
+              </small>
             </div>
 
             <div className="form-group">
@@ -294,6 +347,7 @@ const TeacherEditModule: React.FC = () => {
                 type="date"
                 value={moduleData.due_date}
                 onChange={(e) => handleModuleChange('due_date', e.target.value)}
+                disabled={moduleData.is_posted}
               />
             </div>
           </div>
@@ -301,7 +355,12 @@ const TeacherEditModule: React.FC = () => {
           <div className="questions-section">
             <div className="questions-header">
               <h2>Questions</h2>
-              <button className="add-question-btn" onClick={handleAddQuestion}>
+              <button 
+                className="add-question-btn" 
+                onClick={handleAddQuestion}
+                disabled={moduleData.is_posted}
+                title={moduleData.is_posted ? "Cannot add questions to posted modules" : ""}
+              >
                 + Add Question
               </button>
             </div>
@@ -316,6 +375,8 @@ const TeacherEditModule: React.FC = () => {
                     <button 
                       className="delete-question-btn"
                       onClick={() => handleDeleteQuestion(question.id)}
+                      disabled={moduleData.is_posted}
+                      title={moduleData.is_posted ? "Cannot delete questions from posted modules" : ""}
                     >
                       🗑️
                     </button>
@@ -427,6 +488,8 @@ const TeacherEditModule: React.FC = () => {
                   <button 
                     className="update-question-btn"
                     onClick={() => handleUpdateQuestion(question.id)}
+                    disabled={moduleData.is_posted}
+                    title={moduleData.is_posted ? "Cannot update questions in posted modules" : ""}
                   >
                     Update Question
                   </button>
@@ -436,7 +499,11 @@ const TeacherEditModule: React.FC = () => {
           </div>
 
           <div className="update-section">
-            <button onClick={handleUpdateModule} className="update-button">
+            <button 
+              onClick={handleUpdateModule} 
+              className="update-button"
+              disabled={moduleData.is_posted}
+            >
               Update Module
             </button>
             {!moduleData.is_posted && (

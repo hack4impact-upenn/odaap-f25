@@ -11,8 +11,6 @@ const TeacherSettings: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [zoomLink, setZoomLink] = useState('');
   const [meetingSchedule, setMeetingSchedule] = useState('Every Friday, Saturday (2:00 - 3:00 pm)');
-  const [studentCode, setStudentCode] = useState('DYC126');
-  const [teacherCode, setTeacherCode] = useState('DYC126');
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -33,9 +31,6 @@ const TeacherSettings: React.FC = () => {
         setCourses(enrolledCourses);
         if (enrolledCourses.length > 0) {
           setSelectedCourse(enrolledCourses[0]);
-          // Generate codes based on course ID (in real app, these would come from backend)
-          setStudentCode(`STU${enrolledCourses[0].id.toString().padStart(3, '0')}`);
-          setTeacherCode(`TCH${enrolledCourses[0].id.toString().padStart(3, '0')}`);
         }
       }
     } catch (error) {
@@ -43,10 +38,6 @@ const TeacherSettings: React.FC = () => {
     }
   };
 
-  const handleCopyCode = (code: string, type: string) => {
-    navigator.clipboard.writeText(code);
-    alert(`${type} code copied to clipboard!`);
-  };
 
   const handleUpdateZoom = async () => {
     if (!selectedCourse) return;
@@ -92,42 +83,6 @@ const TeacherSettings: React.FC = () => {
         <h1>Settings</h1>
 
         <div className="settings-grid">
-          <div className="settings-card student-code-card">
-            <h2>Student Class Enrollment Code</h2>
-            <div className="code-display">
-              <input
-                type="text"
-                className="code-input"
-                value={studentCode}
-                readOnly
-              />
-              <button 
-                className="copy-button"
-                onClick={() => handleCopyCode(studentCode, 'Student')}
-              >
-                📋 Copy Code
-              </button>
-            </div>
-          </div>
-
-          <div className="settings-card teacher-code-card">
-            <h2>Teacher Class Enrollment Code</h2>
-            <div className="code-display">
-              <input
-                type="text"
-                className="code-input"
-                value={teacherCode}
-                readOnly
-              />
-              <button 
-                className="copy-button"
-                onClick={() => handleCopyCode(teacherCode, 'Teacher')}
-              >
-                📋 Copy Code
-              </button>
-            </div>
-          </div>
-
           <div className="settings-card zoom-card">
             <h2>🎥 Recurring Zoom Link</h2>
             <p className="zoom-description">Set up a zoom link for students to join the class.</p>

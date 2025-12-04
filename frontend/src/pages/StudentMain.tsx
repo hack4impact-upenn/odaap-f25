@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, submissionAPI, moduleAPI } from '../services/api';
-import type { Course, Module, Submission } from '../types';
+import { courseAPI, submissionAPI, moduleAPI, announcementAPI } from '../services/api';
+import type { Course, Module, Submission, Announcement } from '../types';
 import './StudentMain.css';
 
 const formatDate = (dateString?: string) => {
@@ -24,6 +24,7 @@ const StudentMain: React.FC = () => {
   const [submissions, setSubmissions] = useState<Record<number, Submission[]>>({});
   const [moduleQuestions, setModuleQuestions] = useState<Record<number, number>>({}); // module_id -> question_count
   const [moduleAccessibility, setModuleAccessibility] = useState<Record<number, { is_accessible: boolean; is_completed: boolean }>>({});
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,9 +44,20 @@ const StudentMain: React.FC = () => {
       setCourses(enrolledCourses);
 
         if (enrolledCourses.length > 0) {
+        const currentCourse = enrolledCourses[0];
+        
         // Load modules for the first course (or you could show all)
-        const courseModules = await courseAPI.getModules(enrolledCourses[0].id);
+        const courseModules = await courseAPI.getModules(currentCourse.id);
         setModules(courseModules.sort((a, b) => a.module_order - b.module_order));
+        
+        // Load announcements for the course
+        try {
+          const announcementsData = await announcementAPI.getAll(currentCourse.id);
+          setAnnouncements(announcementsData);
+        } catch (error) {
+          console.error('Error loading announcements:', error);
+          setAnnouncements([]);
+        }
 
         // Load submissions and question counts for all modules
         const submissionsMap: Record<number, Submission[]> = {};
@@ -204,17 +216,32 @@ const StudentMain: React.FC = () => {
         <div className="main-grid">
           {/* Left Column */}
           <div className="left-column">
-            {/* Announcements Card - TODO: Connect to backend */}
+            {/* Announcements Card */}
             <div className="card announcements-card">
               <h3 className="card-title">Announcements</h3>
               <div className="announcements-list">
-                <div className="announcement-item">
-                  <div className="announcement-indicator"></div>
-                  <div className="announcement-content">
-                    <h4 className="announcement-title">No announcements yet</h4>
-                    <p className="announcement-description">Check back later for updates</p>
+                {announcements.length === 0 ? (
+                  <div className="announcement-item">
+                    <div className="announcement-indicator"></div>
+                    <div className="announcement-content">
+                      <h4 className="announcement-title">No announcements yet</h4>
+                      <p className="announcement-description">Check back later for updates</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  announcements.map((announcement) => (
+                    <div key={announcement.id} className="announcement-item">
+                      <div className="announcement-indicator"></div>
+                      <div className="announcement-content">
+                        <h4 className="announcement-title">{announcement.title}</h4>
+                        <p className="announcement-description">{announcement.content}</p>
+                        <span className="announcement-date">
+                          {formatDate(announcement.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

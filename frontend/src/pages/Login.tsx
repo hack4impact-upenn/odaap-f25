@@ -53,7 +53,7 @@ const Login: React.FC = () => {
       <div className="login-header">
         <div className="logo">
           <img src="/logo.png" alt="ODAAP" className="logo-image" />
-          <span className="logo-text">ODAAP Classroom</span>
+          <span className="logo-text" style={{ fontSize: '35px', fontWeight: '600', color: '#4a148c' }}>ODAAP Classroom</span>
         </div>
       </div>
 

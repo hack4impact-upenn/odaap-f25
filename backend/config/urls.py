@@ -22,7 +22,8 @@ from core.serializers import CustomTokenObtainPairSerializer
 
 # views
 from core.views import (
-    CourseViewSet, ModuleViewSet, QuestionViewSet, SubmissionViewSet, register
+    CourseViewSet, ModuleViewSet, QuestionViewSet, SubmissionViewSet, 
+    AnnouncementViewSet, register
 )
 
 # Create router and register viewsets
@@ -31,6 +32,7 @@ router.register(r'courses', CourseViewSet, basename='course')
 router.register(r'modules', ModuleViewSet, basename='module')
 router.register(r'questions', QuestionViewSet, basename='question')
 router.register(r'submissions', SubmissionViewSet, basename='submission')
+router.register(r'announcements', AnnouncementViewSet, basename='announcement')
 
 # Custom token view that uses email
 class EmailTokenObtainPairView(TokenObtainPairView):

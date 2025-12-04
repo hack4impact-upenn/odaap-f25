@@ -77,10 +77,22 @@ const TeacherModules: React.FC = () => {
   const handlePostModule = async (moduleId: number) => {
     try {
       const module = modules.find(m => m.id === moduleId);
-      if (module) {
-        await moduleAPI.update(moduleId, { ...module, is_posted: true });
-        await loadModules(selectedCourse!);
+      if (!module) return;
+      
+      // Find the index of this module
+      const moduleIndex = modules.findIndex(m => m.id === moduleId);
+      
+      // Check if all previous modules are posted
+      const previousModules = modules.slice(0, moduleIndex);
+      const allPreviousPosted = previousModules.every(m => m.is_posted);
+      
+      if (!allPreviousPosted && moduleIndex > 0) {
+        alert('You must post all previous modules before posting this one. Students complete modules sequentially.');
+        return;
       }
+      
+      await moduleAPI.update(moduleId, { ...module, is_posted: true });
+      await loadModules(selectedCourse!);
     } catch (error) {
       console.error('Error posting module:', error);
       alert('Error posting module');
@@ -180,15 +192,21 @@ const TeacherModules: React.FC = () => {
 
         {selectedCourse && (
           <div className="modules-list">
-            {modules.map((module) => {
+            {modules.map((module, index) => {
               const questions = moduleQuestions[module.id] || [];
               const isExpanded = expandedModules.has(module.id);
+              
+              // Check if this module can be posted (all previous modules must be posted)
+              const canPost = index === 0 || modules.slice(0, index).every(m => m.is_posted);
               
               return (
                 <div key={module.id} className="module-card">
                   <div className="module-header">
                     <div className="module-info">
-                      <h3 className="module-title">{module.module_name}</h3>
+                      <div className="module-title-row">
+                        <span className="module-order-badge">#{index + 1}</span>
+                        <h3 className="module-title">{module.module_name}</h3>
+                      </div>
                       <p className="module-description">
                         {module.module_description || 'Description of the module'}
                       </p>
@@ -209,6 +227,8 @@ const TeacherModules: React.FC = () => {
                       <button 
                         className="btn-edit"
                         onClick={() => navigate(`/teacher/modules/${module.id}/edit`)}
+                        disabled={module.is_posted}
+                        title={module.is_posted ? "Cannot edit posted modules" : ""}
                       >
                         ✏️ Edit
                       </button>
@@ -218,6 +238,8 @@ const TeacherModules: React.FC = () => {
                         <button 
                           className="btn-post"
                           onClick={() => handlePostModule(module.id)}
+                          disabled={!canPost}
+                          title={!canPost ? "You must post previous modules first" : ""}
                         >
                           Post to Students
                         </button>
