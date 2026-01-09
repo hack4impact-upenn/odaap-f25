@@ -23,6 +23,10 @@ class Course(models.Model):
     course_name = models.TextField()
     course_description = models.TextField(null=True, blank=True)
     score_total = models.IntegerField(default=0)
+    student_enrollment_code = models.CharField(max_length=20, unique=True, null=True, blank=True)  # Unique enrollment code for students
+    ceu_credit_application_link = models.TextField(null=True, blank=True)  # Continuing Education Credit Application
+    ceu_act48_application_link = models.TextField(null=True, blank=True)  # ACT 48 Application
+    ceu_program_evaluation_link = models.TextField(null=True, blank=True)  # Program Evaluation
 
     class Meta:
         verbose_name_plural = "Courses"
@@ -116,9 +120,10 @@ class UserCourseGrade(models.Model):
 class UserQuestionGrade(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    score = models.IntegerField(null=True, blank=True)
-    total = models.IntegerField(null=True, blank=True)
+    score = models.FloatField(null=True, blank=True)  # Changed to FloatField to support decimals
+    total = models.FloatField(null=True, blank=True)  # Changed to FloatField to support decimals
     is_overdue = models.BooleanField(default=False)
+    teacher_comment = models.TextField(null=True, blank=True)  # Teacher's comment on the submission
 
     def __str__(self):
         return self.question.question_text

@@ -13,6 +13,7 @@ const Login: React.FC = () => {
       first_name: '',
       last_name: '',
       isStudent: true,
+      enrollment_code: '',
     }),
   });
   const [error, setError] = useState<string>('');
@@ -48,6 +49,27 @@ const Login: React.FC = () => {
     }));
   };
 
+  // Reset form when switching between login/register
+  const handleTabSwitch = (loginMode: boolean) => {
+    setIsLogin(loginMode);
+    if (loginMode) {
+      setFormData({
+        email: '',
+        password: '',
+      });
+    } else {
+      setFormData({
+        email: '',
+        password: '',
+        first_name: '',
+        last_name: '',
+        isStudent: true,
+        enrollment_code: '',
+      });
+    }
+    setError('');
+  };
+
   return (
     <div className="login-container">
       <div className="login-header">
@@ -60,13 +82,13 @@ const Login: React.FC = () => {
       <div className="login-tabs">
         <button
           className={`tab ${isLogin ? 'active' : ''}`}
-          onClick={() => setIsLogin(true)}
+          onClick={() => handleTabSwitch(true)}
         >
           Login
         </button>
         <button
           className={`tab ${!isLogin ? 'active' : ''}`}
-          onClick={() => setIsLogin(false)}
+          onClick={() => handleTabSwitch(false)}
         >
           Register
         </button>
@@ -131,37 +153,63 @@ const Login: React.FC = () => {
           </div>
 
           {!isLogin && (
-            <div className="radio-group">
-              <label className="radio-label">I am a:</label>
-              <ul className="radio-list">
-                <li>
-                  <label>
-                    <input
-                      type="radio"
-                      name="isStudent"
-                      value="true"
-                      checked={(formData as RegisterData).isStudent === true}
-                      onChange={() => setFormData(prev => ({ ...prev, isStudent: true }))}
-                    />
-                    <span className="radio-custom"></span>
-                    Student
-                  </label>
-                </li>
-                <li>
-                  <label>
-                    <input
-                      type="radio"
-                      name="isStudent"
-                      value="false"
-                      checked={(formData as RegisterData).isStudent === false}
-                      onChange={() => setFormData(prev => ({ ...prev, isStudent: false }))}
-                    />
-                    <span className="radio-custom"></span>
-                    Teacher
-                  </label>
-                </li>
-              </ul>
-            </div>
+            <>
+              <div className="radio-group">
+                <label className="radio-label">I am a:</label>
+                <ul className="radio-list">
+                  <li>
+                    <label>
+                      <input
+                        type="radio"
+                        name="isStudent"
+                        value="true"
+                        checked={(formData as RegisterData).isStudent === true}
+                        onChange={() => setFormData(prev => ({ 
+                          ...prev, 
+                          isStudent: true,
+                          enrollment_code: (prev as RegisterData).enrollment_code || ''
+                        }))}
+                      />
+                      <span className="radio-custom"></span>
+                      Student
+                    </label>
+                  </li>
+                  <li>
+                    <label>
+                      <input
+                        type="radio"
+                        name="isStudent"
+                        value="false"
+                        checked={(formData as RegisterData).isStudent === false}
+                        onChange={() => setFormData(prev => ({ 
+                          ...prev, 
+                          isStudent: false, 
+                          enrollment_code: '' 
+                        }))}
+                      />
+                      <span className="radio-custom"></span>
+                      Teacher
+                    </label>
+                  </li>
+                </ul>
+              </div>
+              
+              {(formData as RegisterData).isStudent && (
+                <div className="form-field">
+                  <label htmlFor="enrollment_code">Enrollment Code *</label>
+                  <input
+                    type="text"
+                    id="enrollment_code"
+                    name="enrollment_code"
+                    value={(formData as RegisterData).enrollment_code || ''}
+                    onChange={handleChange}
+                    placeholder="Enter course enrollment code"
+                    required
+                  />
+                  <p className="field-hint">Ask your teacher for the enrollment code</p>
+                </div>
+              )}
+            </>
           )}
 
           <button type="submit" className="submit-button">

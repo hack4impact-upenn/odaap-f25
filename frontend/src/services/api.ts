@@ -119,6 +119,15 @@ export const courseAPI = {
     return response.data;
   },
 
+  updateCEULinks: async (courseId: number, ceuLinks: {
+    ceu_credit_application_link?: string;
+    ceu_act48_application_link?: string;
+    ceu_program_evaluation_link?: string;
+  }): Promise<Course> => {
+    const response = await api.put(`/courses/${courseId}/ceu-links/`, ceuLinks);
+    return response.data;
+  },
+
   getModules: async (courseId: number): Promise<Module[]> => {
     const response = await api.get(`/courses/${courseId}/modules/`);
     return response.data;
@@ -154,7 +163,8 @@ export const moduleAPI = {
   },
 
   update: async (id: number, module: Partial<Module>): Promise<Module> => {
-    const response = await api.put(`/modules/${id}/`, module);
+    // Use PATCH for partial updates (allows updating only specific fields)
+    const response = await api.patch(`/modules/${id}/`, module);
     return response.data;
   },
 
@@ -231,6 +241,16 @@ export const submissionAPI = {
     response: string;
   }): Promise<Submission> => {
     const response = await api.post('/submissions/', submission);
+    return response.data;
+  },
+
+  gradeSubmission: async (submissionId: number, score: number, total: number = 1, teacher_comment?: string): Promise<any> => {
+    const response = await api.post(`/submissions/${submissionId}/grade/`, {
+      score,
+      total,
+      is_overdue: false,
+      teacher_comment: teacher_comment || ''
+    });
     return response.data;
   },
 

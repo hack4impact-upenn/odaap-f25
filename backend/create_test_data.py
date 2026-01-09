@@ -105,7 +105,7 @@ def create_test_data():
         if created:
             print(f"✓ Enrolled student: {student.get_full_name()}")
     
-    # Create modules
+    # Create modules (only first 3, all unposted)
     print("\n4. Creating modules...")
     modules_data = [
         {
@@ -113,7 +113,7 @@ def create_test_data():
             'module_description': 'Description of the module',
             'module_order': 1,
             'score_total': 25,
-            'is_posted': True,
+            'is_posted': False,
             'due_date': timezone.now() + timedelta(days=7)
         },
         {
@@ -121,7 +121,7 @@ def create_test_data():
             'module_description': 'Description of the module',
             'module_order': 2,
             'score_total': 25,
-            'is_posted': True,
+            'is_posted': False,
             'due_date': timezone.now() + timedelta(days=14)
         },
         {
@@ -131,14 +131,6 @@ def create_test_data():
             'score_total': 25,
             'is_posted': False,
             'due_date': timezone.now() + timedelta(days=21)
-        },
-        {
-            'module_name': 'Module 4: Chapters 1 - 5',
-            'module_description': 'Description of the module',
-            'module_order': 4,
-            'score_total': 25,
-            'is_posted': False,
-            'due_date': timezone.now() + timedelta(days=28)
         },
     ]
     
@@ -162,9 +154,9 @@ def create_test_data():
             print(f"✓ Using existing module: {module.module_name}")
         created_modules.append(module)
     
-    # Create questions for Module 2 (to show expanded questions)
+    # Create questions for Module 1 (to show expanded questions)
     print("\n5. Creating questions...")
-    module2 = created_modules[1]  # Module 2
+    module1 = created_modules[0]  # Module 1
     
     questions_data = [
         {
@@ -208,7 +200,7 @@ def create_test_data():
         mcq_options = q_data.pop('mcq_options', None)
         
         question, created = Question.objects.get_or_create(
-            module=module2,
+            module=module1,
             question_order=q_data['question_order'],
             defaults=q_data
         )
@@ -229,20 +221,21 @@ def create_test_data():
         else:
             print(f"✓ Question {q_data['question_order']} already exists")
     
-    # Create questions for Module 1
-    module1 = created_modules[0]
-    for i in range(1, 6):
-        question, created = Question.objects.get_or_create(
-            module=module1,
-            question_order=i,
-            defaults={
-                'question_text': f'Question {i} for Module 1',
-                'question_type': 'written',
-                'score_total': 5
-            }
-        )
-        if created:
-            print(f"✓ Created question {i} for Module 1")
+    # Create questions for Module 2
+    module2 = created_modules[1] if len(created_modules) > 1 else None
+    if module2:
+        for i in range(1, 4):
+            question, created = Question.objects.get_or_create(
+                module=module2,
+                question_order=i,
+                defaults={
+                    'question_text': f'Question {i} for Module 2',
+                    'question_type': 'written',
+                    'score_total': 5
+                }
+            )
+            if created:
+                print(f"✓ Created question {i} for Module 2")
     
     print("\n" + "=" * 60)
     print("✅ Test data setup complete!")

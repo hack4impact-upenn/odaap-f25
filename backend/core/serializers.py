@@ -76,7 +76,11 @@ class CourseSerializer(serializers.ModelSerializer):
             'course_name',
             'course_description',
             'zoom_link',
-            'score_total'
+            'score_total',
+            'student_enrollment_code',
+            'ceu_credit_application_link',
+            'ceu_act48_application_link',
+            'ceu_program_evaluation_link'
         ]
        
 
@@ -118,7 +122,7 @@ class QuestionSerializer(serializers.ModelSerializer):
             'score_total',
             'correct_answers'
         ]
-        read_only_fields = ['module_id']
+        read_only_fields = ['module_id']  # module_id is read-only, but module can be set during creation
     
     def get_correct_answers(self, obj):
         """Get all correct answers for this question"""
@@ -158,7 +162,8 @@ class SubmissionSerializer(serializers.ModelSerializer):
             return {
                 'score': grade.score,
                 'total': grade.total,
-                'is_overdue': grade.is_overdue
+                'is_overdue': grade.is_overdue,
+                'teacher_comment': grade.teacher_comment
             }
         except UserQuestionGrade.DoesNotExist:
             return None
@@ -212,7 +217,8 @@ class UserQuestionGradeSerializer(serializers.ModelSerializer):
             'question',
             'user',
             'score',
-            'total'
+            'total',
+            'teacher_comment'
         ]
 
 class CourseToStudentsSerializer(serializers.ModelSerializer):

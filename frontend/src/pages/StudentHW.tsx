@@ -65,8 +65,24 @@ const StudentHW: React.FC = () => {
       }
       
       // Load module
-      const moduleData = await moduleAPI.getById(Number(moduleId));
-      setModule(moduleData);
+      try {
+        const moduleData = await moduleAPI.getById(Number(moduleId));
+        setModule(moduleData);
+      } catch (error: any) {
+        console.error('Error loading module:', error);
+        if (error.response?.status === 404) {
+          alert('Module not found. Please check with your teacher.');
+          navigate('/');
+          return;
+        } else if (error.response?.status === 403) {
+          alert(error.response?.data?.error || 'You do not have access to this module.');
+          navigate('/');
+          return;
+        }
+        alert('Error loading module. Please try again.');
+        navigate('/');
+        return;
+      }
 
       // Load questions (this will fail if module is not accessible)
       try {
@@ -430,7 +446,12 @@ const StudentHW: React.FC = () => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No due date';
     try {
-      const date = new Date(dateString);
+      // Parse date as local date to avoid timezone issues
+      // Extract just the date part (YYYY-MM-DD) from ISO string
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      // Create date in local timezone (month is 0-indexed in JS Date)
+      const date = new Date(year, month - 1, day);
       return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     } catch {
       return dateString;
@@ -442,14 +463,15 @@ const StudentHW: React.FC = () => {
       <Header />
       
       <div className="hw-content">
+        <button 
+          className="back-button"
+          onClick={() => navigate('/')}
+        >
+          <span className="back-arrow">←</span>
+          Back to Home
+        </button>
+        
         <div className="hw-header">
-          <button 
-            className="back-button"
-            onClick={() => navigate('/')}
-          >
-            <span className="back-arrow">←</span>
-            Back to Home
-          </button>
           <h2 className="module-name-header">{module.module_name}</h2>
           <span className="due-date">Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
         </div>
@@ -597,7 +619,15 @@ const StudentHW: React.FC = () => {
                 {/* Show grade if available */}
                 {submission?.grade && (
                   <div className="submission-grade">
-                    <strong>Grade:</strong> {submission.grade.score} / {submission.grade.total}
+                    <div className="grade-score">
+                      <strong>Grade:</strong> {submission.grade.score} / {submission.grade.total}
+                    </div>
+                    {submission.grade.teacher_comment && (
+                      <div className="teacher-comment">
+                        <strong>Teacher Feedback:</strong>
+                        <p className="comment-text">{submission.grade.teacher_comment}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -2,55 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, announcementAPI } from '../services/api';
-import type { Course, Announcement } from '../types';
+import { useCourse } from '../contexts/CourseContext';
+import { announcementAPI } from '../services/api';
+import type { Announcement } from '../types';
 import './TeacherAnnouncements.css';
 
 const TeacherAnnouncements: React.FC = () => {
   const { user } = useAuth();
+  const { selectedCourse, loading: courseLoading } = useCourse();
   const navigate = useNavigate();
-  const [_courses, setCourses] = useState<Course[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      loadCourses();
-    }
-  }, [user]);
-
-  useEffect(() => {
     if (selectedCourse) {
       loadAnnouncements();
-    }
-  }, [selectedCourse]);
-
-  const loadCourses = async () => {
-    try {
-      if (user) {
-        const enrolledCourses = await courseAPI.getEnrolledCourses(user.id);
-        setCourses(enrolledCourses);
-        if (enrolledCourses.length > 0) {
-          setSelectedCourse(enrolledCourses[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading courses:', error);
-    } finally {
+    } else if (!courseLoading) {
       setLoading(false);
     }
-  };
+  }, [selectedCourse, courseLoading]);
 
   const loadAnnouncements = async () => {
     if (!selectedCourse) return;
     try {
-      const announcementsData = await announcementAPI.getAll(selectedCourse);
+      setLoading(true);
+      const announcementsData = await announcementAPI.getAll(selectedCourse.id);
       setAnnouncements(announcementsData);
     } catch (error) {
       console.error('Error loading announcements:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,7 +58,7 @@ const TeacherAnnouncements: React.FC = () => {
 
     try {
       await announcementAPI.create({
-        course: selectedCourse,
+        course: selectedCourse.id,
         title: newAnnouncement.title,
         content: newAnnouncement.content,
         is_posted: true,
@@ -113,7 +96,7 @@ const TeacherAnnouncements: React.FC = () => {
           <button className="active">
             📢 Announcements
           </button>
-          <button onClick={() => navigate('/')}>
+          <button onClick={() => navigate('/teacher/grading')}>
             ✓ Grading
           </button>
           <button onClick={() => navigate('/teacher/settings')}>

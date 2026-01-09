@@ -81,18 +81,157 @@ const TeacherEditModule: React.FC = () => {
     }
   };
 
+  const saveModuleData = async (silent: boolean = true) => {
+    if (!moduleId || !module || moduleData.is_posted) {
+      return;
+    }
+    
+    try {
+      // Prepare update data - only send fields that can be updated
+      // Don't send module_order - it's automatically managed and shouldn't be changed
+      const updateData: any = {
+        module_name: moduleData.module_name,
+        module_description: moduleData.module_description || '',
+        youtube_link: moduleData.youtube_link || '',
+        score_total: moduleData.score_total,
+        is_posted: moduleData.is_posted, // Keep current posted status
+        course: module.course_id, // Include course ID for serializer
+      };
+      
+      // Handle due_date - convert to ISO string if provided, or set to null
+      // Parse the date string (YYYY-MM-DD) as a local date
+      if (moduleData.due_date) {
+        const [year, month, day] = moduleData.due_date.split('-').map(Number);
+        const localDate = new Date(year, month - 1, day);
+        updateData.due_date = localDate.toISOString();
+      } else {
+        updateData.due_date = null as any;
+      }
+      
+      await moduleAPI.update(Number(moduleId), updateData);
+      if (!silent) {
+        alert('Module updated successfully!');
+      }
+    } catch (error: any) {
+      if (!silent) {
+        const errorMessage = error.response?.data?.error || 
+                            error.response?.data?.detail || 
+                            (error.response?.data && JSON.stringify(error.response.data)) ||
+                            error.message || 
+                            'Error updating module';
+        alert(`Error updating module: ${errorMessage}`);
+      } else {
+        // Silently fail for auto-save - don't interrupt user workflow
+        console.error('Error auto-saving module:', error);
+      }
+    }
+  };
+
   const handleModuleChange = (field: string, value: any) => {
     setModuleData(prev => ({ ...prev, [field]: value }));
+    // Auto-save module data after a short delay (debounce)
+    if (moduleId && !moduleData.is_posted) {
+      clearTimeout((window as any).moduleSaveTimeout);
+      (window as any).moduleSaveTimeout = setTimeout(() => {
+        saveModuleData(true); // Silent auto-save
+      }, 1500); // Save 1.5 seconds after user stops typing
+    }
+  };
+
+  const saveQuestion = async (questionId: number, questionDataToSave: Partial<Question>, silent: boolean = true) => {
+    if (moduleData.is_posted) {
+      return; // Don't save if module is posted
+    }
+    
+    const question = questions.find(q => q.id === questionId);
+    
+    if (!question) {
+      console.warn(`Question ${questionId} not found`);
+      return;
+    }
+    
+    // Merge questionDataToSave with existing question data to ensure all required fields are present
+    const mergedData: Partial<Question> = {
+      question_text: questionDataToSave.question_text !== undefined ? questionDataToSave.question_text : question.question_text,
+      question_type: questionDataToSave.question_type !== undefined ? questionDataToSave.question_type : question.question_type,
+      mcq_options: questionDataToSave.mcq_options !== undefined ? questionDataToSave.mcq_options : (question.mcq_options || []),
+      question_order: questionDataToSave.question_order !== undefined ? questionDataToSave.question_order : question.question_order,
+      score_total: questionDataToSave.score_total !== undefined ? questionDataToSave.score_total : question.score_total,
+      correct_answers: questionDataToSave.correct_answers !== undefined ? questionDataToSave.correct_answers : [],
+    };
+    
+    // Ensure we have required fields
+    if (!mergedData.question_text || !mergedData.question_type) {
+      console.warn(`Question ${questionId} missing required fields:`, mergedData);
+      return;
+    }
+    
+    try {
+      // Get correct answers from MCQ options if it's a multiple choice question
+      let correctAnswers = mergedData.correct_answers || [];
+      if (mergedData.question_type === 'multiple_choice' && mergedData.mcq_options) {
+        // For MCQ, correct answers should be the selected options
+        correctAnswers = mergedData.correct_answers || [];
+      }
+      
+      await questionAPI.update(questionId, {
+        question_text: mergedData.question_text,
+        question_type: mergedData.question_type,
+        mcq_options: mergedData.mcq_options || [],
+        correct_answers: correctAnswers,
+        question_order: mergedData.question_order!,
+        score_total: mergedData.score_total!,
+        // Don't send module_id - the question's module shouldn't change during update
+      });
+      
+      if (!silent) {
+        alert('Question updated successfully!');
+      }
+    } catch (error: any) {
+      if (!silent) {
+        const errorMessage = error.response?.data?.error || 
+                            error.response?.data?.detail || 
+                            error.message || 
+                            'Error updating question';
+        alert(`Error updating question: ${errorMessage}`);
+      } else {
+        // Silently fail for auto-save - don't interrupt user workflow
+        console.error('Error auto-saving question:', error);
+        console.error('Question data:', mergedData);
+        console.error('Error details:', error.response?.data);
+      }
+    }
   };
 
   const handleQuestionChange = (questionId: number, field: string, value: any) => {
-    setEditingQuestions(prev => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        [field]: value,
-      },
-    }));
+    setEditingQuestions(prev => {
+      const updated = {
+        ...prev,
+        [questionId]: {
+          ...prev[questionId],
+          [field]: value,
+        },
+      };
+      
+      // Auto-save question data after a short delay (debounce)
+      if (moduleId && !moduleData.is_posted) {
+        const timeoutKey = `questionSaveTimeout_${questionId}`;
+        clearTimeout((window as any)[timeoutKey]);
+        
+        (window as any)[timeoutKey] = setTimeout(() => {
+          // Get latest state to ensure we have all fields
+          setEditingQuestions(current => {
+            const latestQuestionData = current[questionId];
+            if (latestQuestionData && latestQuestionData.question_text) {
+              saveQuestion(questionId, latestQuestionData, true); // Silent auto-save
+            }
+            return current; // Don't modify state, just read it
+          });
+        }, 1500); // Save 1.5 seconds after user stops typing
+      }
+      
+      return updated;
+    });
   };
 
   const handleAddQuestion = async () => {
@@ -106,6 +245,9 @@ const TeacherEditModule: React.FC = () => {
     }
     
     try {
+      // Auto-save module data before creating question
+      await saveModuleData(true);
+      
       // Calculate next question order
       const nextOrder = questions.length > 0 
         ? Math.max(...questions.map(q => q.question_order)) + 1 
@@ -186,42 +328,6 @@ const TeacherEditModule: React.FC = () => {
     handleQuestionChange(questionId, 'mcq_options', options);
   };
 
-  const handleUpdateQuestion = async (questionId: number) => {
-    if (moduleData.is_posted) {
-      alert('Cannot update questions in a posted module. Modules can only be edited before they are posted to students.');
-      return;
-    }
-    
-    try {
-      const questionData = editingQuestions[questionId];
-      const question = questions.find(q => q.id === questionId);
-      
-      if (!question) return;
-      
-      // Get correct answers from MCQ options if it's a multiple choice question
-      let correctAnswers = questionData.correct_answers || [];
-      if (questionData.question_type === 'multiple_choice' && questionData.mcq_options) {
-        // For MCQ, correct answers should be the selected options
-        correctAnswers = questionData.correct_answers || [];
-      }
-      
-      await questionAPI.update(questionId, {
-        question_text: questionData.question_text,
-        question_type: questionData.question_type,
-        mcq_options: questionData.mcq_options || [],
-        correct_answers: correctAnswers,
-        question_order: questionData.question_order,
-        score_total: questionData.score_total,
-        module_id: question.module_id,
-      });
-      
-      alert('Question updated successfully!');
-      await loadModuleData();
-    } catch (error: any) {
-      console.error('Error updating question:', error);
-      alert(error.response?.data?.error || 'Error updating question');
-    }
-  };
 
   const handleUpdateModule = async () => {
     if (moduleData.is_posted) {
@@ -229,30 +335,17 @@ const TeacherEditModule: React.FC = () => {
       return;
     }
     
-    try {
-      const updateData: Partial<Module> = {
-        ...moduleData,
-        due_date: moduleData.due_date ? new Date(moduleData.due_date).toISOString() : undefined,
-      };
-      await moduleAPI.update(Number(moduleId), updateData);
-      alert('Module updated successfully!');
-      navigate('/teacher/modules');
-    } catch (error) {
-      console.error('Error updating module:', error);
-      alert('Error updating module');
+    if (!module) {
+      alert('Module data not loaded. Please refresh the page.');
+      return;
     }
+    
+    // Use the shared saveModuleData function with notification
+    await saveModuleData(false); // Show success/error message
+    // Reload the module data to reflect changes
+    await loadModuleData();
   };
 
-  const handlePostModule = async () => {
-    try {
-      await moduleAPI.update(Number(moduleId), { ...moduleData, is_posted: true });
-      alert('Module posted successfully!');
-      navigate('/teacher/modules');
-    } catch (error) {
-      console.error('Error posting module:', error);
-      alert('Error posting module');
-    }
-  };
 
   if (loading) {
     return (
@@ -327,21 +420,6 @@ const TeacherEditModule: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label>Module Order</label>
-              <input
-                type="number"
-                min="1"
-                value={moduleData.module_order}
-                onChange={(e) => handleModuleChange('module_order', parseInt(e.target.value) || 1)}
-                placeholder="1"
-                disabled={moduleData.is_posted}
-              />
-              <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '4px' }}>
-                Lower numbers appear first. This determines the sequence students see modules.
-              </small>
-            </div>
-
-            <div className="form-group">
               <label>Due Date</label>
               <input
                 type="date"
@@ -349,6 +427,20 @@ const TeacherEditModule: React.FC = () => {
                 onChange={(e) => handleModuleChange('due_date', e.target.value)}
                 disabled={moduleData.is_posted}
               />
+            </div>
+
+            <div className="form-group">
+              <label>YouTube Introduction Video Link</label>
+              <input
+                type="text"
+                value={moduleData.youtube_link}
+                onChange={(e) => handleModuleChange('youtube_link', e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                disabled={moduleData.is_posted}
+              />
+              <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                Students will see this video before starting the module questions. Paste any YouTube URL format.
+              </small>
             </div>
           </div>
 
@@ -485,14 +577,6 @@ const TeacherEditModule: React.FC = () => {
                     </div>
                   )}
 
-                  <button 
-                    className="update-question-btn"
-                    onClick={() => handleUpdateQuestion(question.id)}
-                    disabled={moduleData.is_posted}
-                    title={moduleData.is_posted ? "Cannot update questions in posted modules" : ""}
-                  >
-                    Update Question
-                  </button>
                 </div>
               );
             })}
@@ -506,11 +590,6 @@ const TeacherEditModule: React.FC = () => {
             >
               Update Module
             </button>
-            {!moduleData.is_posted && (
-              <button onClick={handlePostModule} className="post-button">
-                Post
-              </button>
-            )}
           </div>
         </div>
       </div>

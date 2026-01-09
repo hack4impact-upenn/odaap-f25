@@ -28,18 +28,37 @@ def register(request):
     """
     POST /api/register/
     Register a new user
+    For students, enrollment_code is required to automatically enroll in a course
     """
     email = request.data.get('email')
     password = request.data.get('password')
     first_name = request.data.get('first_name')
     last_name = request.data.get('last_name')
     isStudent = request.data.get('isStudent', True)
+    enrollment_code = request.data.get('enrollment_code', '').strip()
     
     if not all([email, password, first_name, last_name]):
         return Response(
             {'error': 'All fields are required'},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+    # Students must provide an enrollment code
+    if isStudent:
+        if not enrollment_code:
+            return Response(
+                {'error': 'Enrollment code is required for students'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate enrollment code and find the course
+        try:
+            course = Course.objects.get(student_enrollment_code=enrollment_code)
+        except Course.DoesNotExist:
+            return Response(
+                {'error': 'Invalid enrollment code. Please check with your teacher.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
     
     if User.objects.filter(email=email).exists():
         return Response(
@@ -56,6 +75,13 @@ def register(request):
         last_name=last_name,
         isStudent=isStudent
     )
+    
+    # If student, automatically enroll them in the course
+    if isStudent:
+        CourseToStudents.objects.get_or_create(
+            course=course,
+            user=user
+        )
     
     # Generate tokens
     refresh = RefreshToken.for_user(user)
@@ -87,6 +113,83 @@ class CourseViewSet(viewsets.ModelViewSet):
             return Course.objects.filter(coursetostudents__user=user).distinct()
         else:
             return Course.objects.filter(coursetoteachers__user=user).distinct()
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new course and automatically enroll the creator as a teacher.
+        Optionally copy modules and questions from a source course.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        course = serializer.save()
+        
+        # Automatically enroll the creator as a teacher
+        if not request.user.isStudent:
+            CourseToTeachers.objects.get_or_create(
+                course=course,
+                user=request.user
+            )
+        
+        # If source_course_id is provided, copy modules and questions
+        source_course_id = request.data.get('source_course_id')
+        if source_course_id:
+            try:
+                source_course = Course.objects.get(id=source_course_id)
+                # Verify user has access to source course
+                if not request.user.isStudent:
+                    has_access = CourseToTeachers.objects.filter(
+                        course=source_course, user=request.user
+                    ).exists()
+                    if has_access:
+                        self._copy_course_content(source_course, course)
+            except Course.DoesNotExist:
+                pass  # Silently ignore if source course doesn't exist
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def _copy_course_content(self, source_course, target_course):
+        """
+        Copy all modules and questions from source_course to target_course.
+        Removes due dates and sets is_posted to False.
+        """
+        # Get all modules from source course, ordered by module_order
+        source_modules = Module.objects.filter(course=source_course).order_by('module_order')
+        
+        for source_module in source_modules:
+            # Create new module without due_date and with is_posted=False
+            new_module = Module.objects.create(
+                course=target_course,
+                module_name=source_module.module_name,
+                module_description=source_module.module_description,
+                youtube_link=source_module.youtube_link,
+                module_order=source_module.module_order,
+                score_total=source_module.score_total,
+                is_posted=False,  # Always set to False
+                due_date=None  # Remove due date
+            )
+            
+            # Get all questions from source module, ordered by question_order
+            source_questions = Question.objects.filter(module=source_module).order_by('question_order')
+            
+            for source_question in source_questions:
+                # Create new question
+                new_question = Question.objects.create(
+                    module=new_module,
+                    question_type=source_question.question_type,
+                    question_text=source_question.question_text,
+                    mcq_options=source_question.mcq_options,  # JSON field, copied as-is
+                    question_order=source_question.question_order,
+                    score_total=source_question.score_total
+                )
+                
+                # Copy correct answers if they exist
+                source_correct_answers = QuestionToCorrectAnswers.objects.filter(question=source_question)
+                for source_answer in source_correct_answers:
+                    QuestionToCorrectAnswers.objects.create(
+                        question=new_question,
+                        correct_answer=source_answer.correct_answer
+                    )
     
     @action(detail=False, methods=['get'], url_path='userid=(?P<user_id>[^/.]+)')
     def get_all_enrolled_courses(self, request, user_id=None):
@@ -287,6 +390,60 @@ class CourseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=True, methods=['put', 'patch'], url_path='ceu-links')
+    def update_ceu_links(self, request, pk=None):
+        """
+        PUT /api/courses/{course_id}/ceu-links
+        Updates the CEU links for a course
+        Only teachers of the course can update the CEU links
+        """
+        try:
+            course = self.get_object()
+            user = request.user
+            
+            # Check if user is a teacher
+            if user.isStudent:
+                return Response(
+                    {"error": "Only teachers can update CEU links"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Verify user is a teacher of this course
+            is_teacher = CourseToTeachers.objects.filter(course=course, user=user).exists()
+            if not is_teacher:
+                return Response(
+                    {"error": "You are not a teacher of this course"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Get CEU links from request data
+            ceu_credit_application_link = request.data.get('ceu_credit_application_link', '')
+            ceu_act48_application_link = request.data.get('ceu_act48_application_link', '')
+            ceu_program_evaluation_link = request.data.get('ceu_program_evaluation_link', '')
+            
+            # Update the CEU links
+            course.ceu_credit_application_link = ceu_credit_application_link or None
+            course.ceu_act48_application_link = ceu_act48_application_link or None
+            course.ceu_program_evaluation_link = ceu_program_evaluation_link or None
+            course.save(update_fields=['ceu_credit_application_link', 'ceu_act48_application_link', 'ceu_program_evaluation_link'])
+            
+            # Return updated course data
+            serializer = self.get_serializer(course)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"Error in update_ceu_links: {error_trace}")
+            return Response(
+                {
+                    "error": str(e),
+                    "detail": "Failed to update CEU links",
+                    "type": type(e).__name__
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     @action(detail=True, methods=['get'], url_path='modules')
     def get_course_modules(self, request, pk=None):
         """
@@ -367,6 +524,43 @@ class ModuleViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(course__in=user_courses)
         
         return queryset.order_by('module_order')
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        GET /api/modules/{module_id}/
+        Retrieve a specific module
+        """
+        try:
+            module = self.get_object()
+        except Http404:
+            return Response(
+                {"error": "Module not found or you don't have access to it"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Additional access check for students
+        user = request.user
+        if user.isStudent:
+            has_access = CourseToStudents.objects.filter(
+                course=module.course, user=user
+            ).exists()
+            if not has_access:
+                return Response(
+                    {"error": "You don't have access to this module"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            has_access = CourseToTeachers.objects.filter(
+                course=module.course, user=user
+            ).exists()
+            if not has_access:
+                return Response(
+                    {"error": "You don't have access to this module"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        serializer = self.get_serializer(module)
+        return Response(serializer.data)
     
     @action(detail=True, methods=['get'], url_path='questions')
     def get_all_questions(self, request, pk=None):
@@ -529,6 +723,49 @@ class ModuleViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    def update(self, request, *args, **kwargs):
+        """
+        PUT /api/modules/{module_id}/
+        Update a module. Validates that modules can only be posted if all previous modules are posted.
+        """
+        partial = kwargs.pop('partial', False)
+        module = self.get_object()
+        
+        # Check if trying to post the module (set is_posted to True)
+        is_posted_in_request = request.data.get('is_posted', None)
+        current_is_posted = module.is_posted
+        
+        # If trying to post a module (changing from False to True)
+        if is_posted_in_request is True and not current_is_posted:
+            # Check if all previous modules (with lower module_order) are posted
+            previous_modules = Module.objects.filter(
+                course=module.course,
+                module_order__lt=module.module_order
+            ).order_by('module_order')
+            
+            unposted_previous = [m for m in previous_modules if not m.is_posted]
+            if unposted_previous:
+                unposted_names = [m.module_name for m in unposted_previous]
+                return Response(
+                    {
+                        "error": "Cannot post this module until all previous modules are posted.",
+                        "unposted_modules": unposted_names,
+                        "detail": f"You must post the following modules first: {', '.join(unposted_names)}"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Remove module_order from request - it's automatically managed and shouldn't be changed
+        request_data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        request_data.pop('module_order', None)
+        
+        # Proceed with normal update - use partial=True to allow updating individual fields
+        serializer = self.get_serializer(module, data=request_data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        return Response(serializer.data)
 
 # ============================================================================
 # QUESTION VIEWSET
@@ -653,14 +890,23 @@ class QuestionViewSet(viewsets.ModelViewSet):
         partial = kwargs.pop('partial', False)
         question = self.get_object()
         
-        # Allow editing questions (teachers can always update)
-        # Note: In production, you might want to restrict editing posted modules
+        # Check if module is posted - prevent editing if posted
+        if question.module.is_posted:
+            return Response(
+                {"error": "Cannot update question in a posted module"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Handle correct_answers if provided (make a copy to avoid mutating request.data)
         request_data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         correct_answers = request_data.pop('correct_answers', None)
         
-        serializer = self.get_serializer(question, data=request_data, partial=partial)
+        # Remove module_id and module from request - question's module shouldn't change (now read-only)
+        request_data.pop('module_id', None)
+        request_data.pop('module', None)
+        
+        # Use partial=True to allow updating without requiring all fields
+        serializer = self.get_serializer(question, data=request_data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         
@@ -701,19 +947,44 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Get submissions for the current user"""
+        """Get submissions for the current user or all student submissions if teacher"""
         user = self.request.user
-        queryset = Submission.objects.filter(user=user)
+        
+        if user.isStudent:
+            # Students only see their own submissions
+            queryset = Submission.objects.filter(user=user)
+        else:
+            # Teachers see all submissions from students in courses they teach
+            teacher_courses = Course.objects.filter(coursetoteachers__user=user)
+            
+            # If filtering by module_id, verify the teacher has access to that module's course
+            module_id = self.request.query_params.get('module_id', None)
+            if module_id:
+                try:
+                    from .models import Module
+                    module = Module.objects.get(id=module_id)
+                    # Verify teacher has access to this module's course
+                    if teacher_courses.filter(id=module.course.id).exists():
+                        queryset = Submission.objects.filter(
+                            module_id=module_id,
+                            user__isStudent=True
+                        )
+                    else:
+                        # Teacher doesn't have access to this module's course
+                        queryset = Submission.objects.none()
+                except Module.DoesNotExist:
+                    queryset = Submission.objects.none()
+            else:
+                # No module filter - get all submissions from teacher's courses
+                queryset = Submission.objects.filter(
+                    module__course__in=teacher_courses,
+                    user__isStudent=True
+                ).distinct()
         
         # Filter by question_id if provided
         question_id = self.request.query_params.get('question_id', None)
         if question_id:
             queryset = queryset.filter(question_id=question_id)
-        
-        # Filter by module_id if provided
-        module_id = self.request.query_params.get('module_id', None)
-        if module_id:
-            queryset = queryset.filter(module_id=module_id)
         
         return queryset.order_by('-time_submitted')
     
@@ -844,16 +1115,27 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     def grade_submission(self, request, pk=None):
         """
         POST /api/submissions/{submission_id}/grade
-        Grade a submission
+        Grade a submission with optional teacher comment
         """
         submission = self.get_object()
         score = request.data.get('score')
-        total = request.data.get('total', submission.question.score_total)
+        total = request.data.get('total', 1.0)  # Default to 1.0 for decimal support
         is_overdue = request.data.get('is_overdue', False)
+        teacher_comment = request.data.get('teacher_comment', '')
         
         if score is None:
             return Response(
                 {"error": "score is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Convert to float to support decimals
+        try:
+            score = float(score)
+            total = float(total) if total else 1.0
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "Score and total must be valid numbers"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -870,7 +1152,8 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             defaults={
                 'score': score,
                 'total': total,
-                'is_overdue': is_overdue
+                'is_overdue': is_overdue,
+                'teacher_comment': teacher_comment or None
             }
         )
         
@@ -879,7 +1162,8 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             "grade": {
                 "score": grade.score,
                 "total": grade.total,
-                "is_overdue": grade.is_overdue
+                "is_overdue": grade.is_overdue,
+                "teacher_comment": grade.teacher_comment
             }
         }, status=status.HTTP_200_OK)
 

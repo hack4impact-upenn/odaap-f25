@@ -2,46 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, moduleAPI, questionAPI } from '../services/api';
+import { useCourse } from '../contexts/CourseContext';
+import { moduleAPI, questionAPI } from '../services/api';
 import type { Module, Question } from '../types';
 import './TeacherModules.css';
 
 const TeacherModules: React.FC = () => {
+  const { selectedCourse, loading: courseLoading } = useCourse();
   const [modules, setModules] = useState<Module[]>([]);
   const [moduleQuestions, setModuleQuestions] = useState<Record<number, Question[]>>({});
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
-  const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
     if (selectedCourse) {
-      loadModules(selectedCourse);
-    }
-  }, [selectedCourse]);
-
-  const loadData = async () => {
-    try {
-      if (user) {
-        const enrolledCourses = await courseAPI.getEnrolledCourses(user.id);
-        if (enrolledCourses.length > 0) {
-          setSelectedCourse(enrolledCourses[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
+      loadModules(selectedCourse.id);
+    } else if (!courseLoading) {
       setLoading(false);
     }
-  };
+  }, [selectedCourse, courseLoading]);
 
   const loadModules = async (courseId: number) => {
     try {
+      setLoading(true);
       const courseModules = await moduleAPI.getAll(courseId);
       const sortedModules = courseModules.sort((a, b) => a.module_order - b.module_order);
       setModules(sortedModules);
@@ -59,6 +44,8 @@ const TeacherModules: React.FC = () => {
       setModuleQuestions(questionsMap);
     } catch (error) {
       console.error('Error loading modules:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -92,7 +79,9 @@ const TeacherModules: React.FC = () => {
       }
       
       await moduleAPI.update(moduleId, { ...module, is_posted: true });
-      await loadModules(selectedCourse!);
+      if (selectedCourse) {
+        await loadModules(selectedCourse.id);
+      }
     } catch (error) {
       console.error('Error posting module:', error);
       alert('Error posting module');
@@ -102,7 +91,12 @@ const TeacherModules: React.FC = () => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'TBD';
     try {
-      const date = new Date(dateString);
+      // Parse date as local date to avoid timezone issues
+      // Extract just the date part (YYYY-MM-DD) from ISO string
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      // Create date in local timezone (month is 0-indexed in JS Date)
+      const date = new Date(year, month - 1, day);
       return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     } catch {
       return dateString;
@@ -149,7 +143,7 @@ const TeacherModules: React.FC = () => {
           <button onClick={() => navigate('/teacher/announcements')}>
             📢 Announcements
           </button>
-          <button onClick={() => navigate('/')}>
+          <button onClick={() => navigate('/teacher/grading')}>
             ✓ Grading
           </button>
           <button onClick={() => navigate('/teacher/settings')}>
@@ -168,12 +162,18 @@ const TeacherModules: React.FC = () => {
                   return;
                 }
                 
-                // Create a new module
+                // Calculate the next module order (max existing order + 1)
+                const maxOrder = modules.length > 0 
+                  ? Math.max(...modules.map(m => m.module_order))
+                  : 0;
+                const nextOrder = maxOrder + 1;
+                
+                // Create a new module with automatically assigned order
                 const newModule = await moduleAPI.create({
-                  course: selectedCourse,
-                  module_name: `Module ${modules.length + 1}`,
+                  course: selectedCourse.id,
+                  module_name: `Module ${nextOrder}`,
                   module_description: 'Description of the module',
-                  module_order: modules.length + 1,
+                  module_order: nextOrder,
                   score_total: 100,
                   is_posted: false,
                 } as any);
@@ -189,6 +189,18 @@ const TeacherModules: React.FC = () => {
             + Create Module
           </button>
         </div>
+
+        {!selectedCourse && !courseLoading && (
+          <div className="no-course-message">
+            <p>Please select a course in Settings to view modules.</p>
+          </div>
+        )}
+
+        {selectedCourse && modules.length === 0 && !loading && (
+          <div className="no-modules-message">
+            <p>No modules yet. Create your first module to get started!</p>
+          </div>
+        )}
 
         {selectedCourse && (
           <div className="modules-list">

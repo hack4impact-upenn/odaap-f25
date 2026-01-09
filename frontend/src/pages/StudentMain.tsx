@@ -170,8 +170,20 @@ const StudentMain: React.FC = () => {
 
   const handleModuleClick = (module: Module) => {
     const moduleStatus = getModuleStatus(module);
+    console.log('Module click:', { moduleId: module.id, moduleName: module.module_name, status: moduleStatus.status });
+    
     if (moduleStatus.status === 'active' || moduleStatus.status === 'completed') {
-      navigate(`/student/hw/${module.id}`);
+      // If module has a YouTube video link, go to video page first
+      if (module.youtube_link) {
+        console.log('Navigating to video page:', `/student/module/${module.id}/video`);
+        navigate(`/student/module/${module.id}/video`);
+      } else {
+        // Otherwise, go directly to homework/questions
+        console.log('Navigating to homework page:', `/student/hw/${module.id}`);
+        navigate(`/student/hw/${module.id}`);
+      }
+    } else {
+      console.log('Module is locked, cannot navigate');
     }
   };
 
@@ -287,7 +299,15 @@ const StudentMain: React.FC = () => {
                     <div 
                       key={module.id}
                       className="assignment-item clickable"
-                      onClick={() => navigate(`/student/hw/${module.id}`)}
+                      onClick={() => {
+                        // If module has a YouTube video link, go to video page first
+                        if (module.youtube_link) {
+                          navigate(`/student/module/${module.id}/video`);
+                        } else {
+                          // Otherwise, go directly to homework/questions
+                          navigate(`/student/hw/${module.id}`);
+                        }
+                      }}
                     >
                       <h4 className="assignment-name">{module.module_name}</h4>
                       <p className="assignment-description">{module.module_description || 'Description'}</p>
@@ -393,6 +413,63 @@ const StudentMain: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* CEU Links Section */}
+        {currentCourse && (
+          (currentCourse.ceu_credit_application_link || 
+           currentCourse.ceu_act48_application_link || 
+           currentCourse.ceu_program_evaluation_link) && (
+            <div className="ceu-section">
+              <div className="card ceu-consolidated-card">
+                <h2 className="section-title">Continuing Education Credits</h2>
+                <div className="ceu-links-list">
+                  {currentCourse.ceu_credit_application_link && (
+                    <div className="ceu-link-item">
+                      <h4 className="ceu-link-title">Continuing Education Credit Application</h4>
+                      <a
+                        href={currentCourse.ceu_credit_application_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ceu-link-button"
+                      >
+                        Open Link
+                        <span className="icon-link">🔗</span>
+                      </a>
+                    </div>
+                  )}
+                  {currentCourse.ceu_act48_application_link && (
+                    <div className="ceu-link-item">
+                      <h4 className="ceu-link-title">ACT 48 Application</h4>
+                      <a
+                        href={currentCourse.ceu_act48_application_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ceu-link-button"
+                      >
+                        Open Link
+                        <span className="icon-link">🔗</span>
+                      </a>
+                    </div>
+                  )}
+                  {currentCourse.ceu_program_evaluation_link && (
+                    <div className="ceu-link-item">
+                      <h4 className="ceu-link-title">Program Evaluation</h4>
+                      <a
+                        href={currentCourse.ceu_program_evaluation_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ceu-link-button"
+                      >
+                        Open Link
+                        <span className="icon-link">🔗</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        )}
       </div>
     </div>
   );

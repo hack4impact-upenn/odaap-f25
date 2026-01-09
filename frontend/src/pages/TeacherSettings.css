@@ -45,6 +45,169 @@
   margin: 0 0 24px 0;
 }
 
+.course-selector-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.course-selector-section label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.course-select {
+  flex: 1;
+  max-width: 400px;
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.course-select:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.no-courses-message {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  flex: 1;
+}
+
+.create-course-button {
+  padding: 10px 20px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.create-course-button:hover {
+  background: #7b1fa2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.3);
+}
+
+.create-course-card {
+  margin-bottom: 24px;
+  grid-column: 1 / -1;
+}
+
+.create-course-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+}
+
+.create-course-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.create-course-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.create-course-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.course-name-input,
+.course-description-input {
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.course-name-input:focus,
+.course-description-input:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.course-description-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.create-course-submit-button {
+  padding: 12px 24px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.create-course-submit-button:hover:not(:disabled) {
+  background: #7b1fa2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.3);
+}
+
+.create-course-submit-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.source-course-select {
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.source-course-select:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.copy-note {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+  font-style: italic;
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -163,4 +326,142 @@
 
 .update-zoom-button:hover {
   background: #555;
+}
+
+.ceu-card {
+  grid-column: 1 / -1;
+}
+
+.ceu-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+}
+
+.ceu-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ceu-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ceu-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.ceu-form input {
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.ceu-form input:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.update-ceu-button {
+  padding: 12px 24px;
+  background: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.update-ceu-button:hover {
+  background: #555;
+}
+
+.enrollment-code-card {
+  grid-column: 1 / -1;
+}
+
+.enrollment-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+}
+
+.enrollment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.enrollment-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.enrollment-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.enrollment-code-display {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.enrollment-code-input {
+  flex: 1;
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+}
+
+.enrollment-code-input:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.update-enrollment-button {
+  padding: 12px 24px;
+  background: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.update-enrollment-button:hover {
+  background: #555;
+}
+
+.current-code {
+  font-size: 13px;
+  color: #666;
+  margin: 8px 0 0 0;
+}
+
+.current-code strong {
+  color: #9c27b0;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
 }

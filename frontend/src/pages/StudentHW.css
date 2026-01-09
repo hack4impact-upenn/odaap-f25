@@ -9,6 +9,31 @@
   padding: 24px;
 }
 
+.back-button {
+  background: transparent;
+  border: none;
+  color: #9c27b0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.3s;
+  margin-bottom: 16px;
+}
+
+.back-button:hover {
+  opacity: 0.8;
+}
+
+.back-arrow {
+  font-size: 18px;
+  line-height: 1;
+  color: #9c27b0;
+}
+
 .hw-header {
   display: flex;
   justify-content: space-between;
@@ -26,29 +51,6 @@
   margin: 0;
 }
 
-.back-button {
-  background: transparent;
-  border: none;
-  color: #9c27b0;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.3s;
-}
-
-.back-button:hover {
-  opacity: 0.8;
-}
-
-.back-arrow {
-  font-size: 18px;
-  line-height: 1;
-  color: #9c27b0;
-}
 
 .due-date {
   font-size: 14px;
@@ -355,11 +357,40 @@
 
 .submission-grade {
   margin-top: 16px;
-  padding: 12px;
+  padding: 16px;
   background: #e8f5e9;
   border-radius: 8px;
   color: #2e7d32;
   font-size: 14px;
+}
+
+.grade-score {
+  margin-bottom: 12px;
+}
+
+.teacher-comment {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #a5d6a7;
+}
+
+.teacher-comment strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #1b5e20;
+  font-size: 13px;
+}
+
+.comment-text {
+  margin: 0;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .question-card.has-submission {

@@ -132,8 +132,9 @@
 
 .module-meta {
   display: flex;
-  gap: 16px;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
   font-size: 14px;
   color: #666;
 }
@@ -169,9 +170,10 @@
 
 .module-actions {
   display: flex;
+  flex-direction: row;
   gap: 12px;
   align-items: center;
-  flex-shrink: 0; /* Prevents buttons from shrinking */
+  flex-shrink: 0;
 }
 
 .btn-edit:disabled {

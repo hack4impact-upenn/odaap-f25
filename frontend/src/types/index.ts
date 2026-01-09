@@ -14,6 +14,10 @@ export interface Course {
   course_description: string;
   zoom_link?: string;
   score_total: number;
+  student_enrollment_code?: string;
+  ceu_credit_application_link?: string;
+  ceu_act48_application_link?: string;
+  ceu_program_evaluation_link?: string;
 }
 
 export interface Module {
@@ -54,6 +58,7 @@ export interface Submission {
     score: number;
     total: number;
     is_overdue: boolean;
+    teacher_comment?: string;
   };
 }
 
@@ -68,6 +73,7 @@ export interface RegisterData {
   email: string;
   password: string;
   isStudent: boolean;
+  enrollment_code?: string;
 }
 
 export interface AuthResponse {
