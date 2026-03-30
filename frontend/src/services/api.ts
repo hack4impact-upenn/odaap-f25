@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { 
-  Course, Module, Question, Submission, User, Announcement,
+  Course, Module, Question, Submission, User, Announcement, Resource,
   LoginCredentials, RegisterData, AuthResponse 
 } from '../types';
 
@@ -77,6 +77,25 @@ export const authAPI = {
     const response = await api.post('/token/refresh/', { refresh });
     return response.data;
   },
+
+  inviteTeacher: async (data: {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    course_ids?: number[];
+  }): Promise<{ message: string; user: User; added_to_courses: string[] }> => {
+    const response = await api.post('/invite-teacher/', data);
+    return response.data;
+  },
+
+  resetUserPassword: async (userId: number, newPassword: string): Promise<{ message: string }> => {
+    const response = await api.post('/reset-user-password/', {
+      user_id: userId,
+      new_password: newPassword,
+    });
+    return response.data;
+  },
 };
 
 // Course API
@@ -141,6 +160,10 @@ export const courseAPI = {
   getTeachers: async (courseId: number): Promise<User[]> => {
     const response = await api.get(`/courses/${courseId}/teachers/`);
     return response.data;
+  },
+
+  delete: async (courseId: number): Promise<void> => {
+    await api.delete(`/courses/${courseId}/`);
   },
 };
 
@@ -301,12 +324,36 @@ export const announcementAPI = {
   },
 
   update: async (id: number, announcement: Partial<Announcement>): Promise<Announcement> => {
-    const response = await api.put(`/announcements/${id}/`, announcement);
+    // Use PATCH for partial updates instead of PUT
+    const response = await api.patch(`/announcements/${id}/`, announcement);
     return response.data;
   },
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/announcements/${id}/`);
+  },
+};
+
+// Resource API
+export const resourceAPI = {
+  getAll: async (courseId?: number): Promise<Resource[]> => {
+    const url = courseId ? `/resources/?course_id=${courseId}` : '/resources/';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  create: async (resource: Partial<Resource>): Promise<Resource> => {
+    const response = await api.post('/resources/', resource);
+    return response.data;
+  },
+
+  update: async (id: number, resource: Partial<Resource>): Promise<Resource> => {
+    const response = await api.patch(`/resources/${id}/`, resource);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/resources/${id}/`);
   },
 };
 

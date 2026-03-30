@@ -1,3 +1,5 @@
+import random
+import string
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -7,13 +9,21 @@ from django.http import Http404
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
+
+
+def generate_enrollment_code(length=5):
+    """Generate a unique random uppercase enrollment code."""
+    while True:
+        code = ''.join(random.choices(string.ascii_uppercase, k=length))
+        if not Course.objects.filter(student_enrollment_code=code).exists():
+            return code
 from .models import (
     Course, CourseToStudents, CourseToTeachers, Module, Question, 
-    Submission, UserQuestionGrade, QuestionToCorrectAnswers, User, Announcement
+    Submission, UserQuestionGrade, QuestionToCorrectAnswers, User, Announcement, Resource
 )
 from .serializers import (
     CourseSerializer, ModuleSerializer, QuestionSerializer, 
-    SubmissionSerializer, UserSerializer, AnnouncementSerializer
+    SubmissionSerializer, UserSerializer, AnnouncementSerializer, ResourceSerializer
 )
 
 User = get_user_model()
@@ -34,7 +44,6 @@ def register(request):
     password = request.data.get('password')
     first_name = request.data.get('first_name')
     last_name = request.data.get('last_name')
-    isStudent = request.data.get('isStudent', True)
     enrollment_code = request.data.get('enrollment_code', '').strip()
     
     if not all([email, password, first_name, last_name]):
@@ -43,22 +52,19 @@ def register(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Students must provide an enrollment code
-    if isStudent:
-        if not enrollment_code:
-            return Response(
-                {'error': 'Enrollment code is required for students'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Validate enrollment code and find the course
-        try:
-            course = Course.objects.get(student_enrollment_code=enrollment_code)
-        except Course.DoesNotExist:
-            return Response(
-                {'error': 'Invalid enrollment code. Please check with your teacher.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    if not enrollment_code:
+        return Response(
+            {'error': 'Enrollment code is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        course = Course.objects.get(student_enrollment_code=enrollment_code)
+    except Course.DoesNotExist:
+        return Response(
+            {'error': 'Invalid enrollment code. Please check with your teacher.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     if User.objects.filter(email=email).exists():
         return Response(
@@ -66,22 +72,19 @@ def register(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Create user
     user = User.objects.create_user(
-        username=email,  # Use email as username
+        username=email,
         email=email,
         password=password,
         first_name=first_name,
         last_name=last_name,
-        isStudent=isStudent
+        isStudent=True
     )
     
-    # If student, automatically enroll them in the course
-    if isStudent:
-        CourseToStudents.objects.get_or_create(
-            course=course,
-            user=user
-        )
+    CourseToStudents.objects.get_or_create(
+        course=course,
+        user=user
+    )
     
     # Generate tokens
     refresh = RefreshToken.for_user(user)
@@ -97,6 +100,165 @@ def register(request):
             'isStudent': user.isStudent,
         }
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def invite_teacher(request):
+    """
+    POST /api/invite-teacher/
+    Allows an existing teacher to create a new teacher account
+    and optionally add them to courses.
+    """
+    if request.user.isStudent:
+        return Response(
+            {'error': 'Only teachers can invite other teachers'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    email = request.data.get('email')
+    password = request.data.get('password')
+    first_name = request.data.get('first_name')
+    last_name = request.data.get('last_name')
+    course_ids = request.data.get('course_ids', [])
+
+    if not all([email, password, first_name, last_name]):
+        return Response(
+            {'error': 'Email, password, first name, and last name are all required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if User.objects.filter(email=email).exists():
+        return Response(
+            {'error': 'A user with this email already exists'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    new_teacher = User.objects.create_user(
+        username=email,
+        email=email,
+        password=password,
+        first_name=first_name,
+        last_name=last_name,
+        isStudent=False
+    )
+
+    added_courses = []
+    for course_id in course_ids:
+        try:
+            course = Course.objects.get(id=course_id)
+            is_requester_teacher = CourseToTeachers.objects.filter(
+                course=course, user=request.user
+            ).exists()
+            if is_requester_teacher:
+                CourseToTeachers.objects.get_or_create(course=course, user=new_teacher)
+                added_courses.append(course.course_name)
+        except Course.DoesNotExist:
+            continue
+
+    return Response({
+        'message': 'Teacher account created successfully',
+        'user': {
+            'id': new_teacher.id,
+            'email': new_teacher.email,
+            'first_name': new_teacher.first_name,
+            'last_name': new_teacher.last_name,
+            'isStudent': new_teacher.isStudent,
+        },
+        'added_to_courses': added_courses
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """
+    POST /api/change-password/
+    Authenticated user changes their own password.
+    """
+    current_password = request.data.get('current_password')
+    new_password = request.data.get('new_password')
+
+    if not current_password or not new_password:
+        return Response(
+            {'error': 'Current password and new password are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not request.user.check_password(current_password):
+        return Response(
+            {'error': 'Current password is incorrect'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if len(new_password) < 6:
+        return Response(
+            {'error': 'New password must be at least 6 characters'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    request.user.set_password(new_password)
+    request.user.save()
+
+    return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reset_user_password(request):
+    """
+    POST /api/reset-user-password/
+    Teacher resets a student's or another teacher's password.
+    Only works for users who share a course with the requesting teacher.
+    """
+    if request.user.isStudent:
+        return Response(
+            {'error': 'Only teachers can reset passwords'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    user_id = request.data.get('user_id')
+    new_password = request.data.get('new_password')
+
+    if not user_id or not new_password:
+        return Response(
+            {'error': 'user_id and new_password are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    teacher_courses = Course.objects.filter(coursetoteachers__user=request.user)
+    shares_course = (
+        CourseToStudents.objects.filter(course__in=teacher_courses, user=target_user).exists() or
+        CourseToTeachers.objects.filter(course__in=teacher_courses, user=target_user).exists()
+    )
+
+    if not shares_course:
+        return Response(
+            {'error': 'You can only reset passwords for users in your courses'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if len(new_password) < 6:
+        return Response(
+            {'error': 'New password must be at least 6 characters'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    target_user.set_password(new_password)
+    target_user.save()
+
+    return Response({
+        'message': f'Password reset successfully for {target_user.get_full_name()}'
+    }, status=status.HTTP_200_OK)
+
 
 # ============================================================================
 # COURSE VIEWSET
@@ -122,6 +284,10 @@ class CourseViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         course = serializer.save()
+        
+        if not course.student_enrollment_code:
+            course.student_enrollment_code = generate_enrollment_code()
+            course.save(update_fields=['student_enrollment_code'])
         
         # Automatically enroll the creator as a teacher
         if not request.user.isStudent:
@@ -490,6 +656,25 @@ class CourseViewSet(viewsets.ModelViewSet):
         
         serializer = UserSerializer(teachers, many=True)
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        course = self.get_object()
+        user = request.user
+
+        if user.isStudent:
+            return Response(
+                {"error": "Only teachers can delete courses"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not CourseToTeachers.objects.filter(course=course, user=user).exists():
+            return Response(
+                {"error": "You are not a teacher for this course"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        course.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 # ============================================================================
 # MODULE VIEWSET
@@ -1216,3 +1401,51 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Set the creator when creating an announcement"""
         serializer.save(created_by=self.request.user)
+
+# ============================================================================
+# RESOURCE VIEWSET
+# ============================================================================
+
+class ResourceViewSet(viewsets.ModelViewSet):
+    serializer_class = ResourceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        course_id = self.request.query_params.get('course_id', None)
+
+        if user.isStudent:
+            user_courses = Course.objects.filter(coursetostudents__user=user)
+        else:
+            user_courses = Course.objects.filter(coursetoteachers__user=user)
+
+        queryset = Resource.objects.filter(course__in=user_courses)
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+
+        return queryset.order_by('order', 'created_at')
+
+    def create(self, request, *args, **kwargs):
+        if request.user.isStudent:
+            return Response(
+                {"error": "Only teachers can create resources"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if request.user.isStudent:
+            return Response(
+                {"error": "Only teachers can update resources"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.isStudent:
+            return Response(
+                {"error": "Only teachers can delete resources"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().destroy(request, *args, **kwargs)

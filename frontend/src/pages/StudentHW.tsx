@@ -85,9 +85,10 @@ const StudentHW: React.FC = () => {
       }
 
       // Load questions (this will fail if module is not accessible)
+      let sortedQuestions: Question[] = [];
       try {
         const questionsData = await moduleAPI.getQuestions(Number(moduleId));
-        const sortedQuestions = questionsData.sort((a, b) => a.question_order - b.question_order);
+        sortedQuestions = questionsData.sort((a, b) => a.question_order - b.question_order);
         setQuestions(sortedQuestions);
       } catch (error: any) {
         if (error.response?.status === 403) {
@@ -124,13 +125,23 @@ const StudentHW: React.FC = () => {
           setResponses(initialResponses);
           setResponseTypes(initialTypes);
           
-          // If there are submissions, we're in review mode (read-only)
-          if (Object.keys(submissionsMap).length > 0) {
+          // Only set review mode if ALL questions have been submitted
+          // Check if every question has a submission with a response
+          const allQuestionsSubmitted = sortedQuestions.length > 0 && 
+            sortedQuestions.every(q => {
+              const submission = submissionsMap[q.id];
+              return submission && submission.submission_response && submission.submission_response.trim() !== '';
+            });
+          
+          if (allQuestionsSubmitted) {
             setIsReviewMode(true);
             // Disable all inputs since submissions are final
+          } else {
+            setIsReviewMode(false);
           }
         } catch (error) {
           console.log('No existing submissions found');
+          setIsReviewMode(false);
         }
       }
 
@@ -620,7 +631,7 @@ const StudentHW: React.FC = () => {
                 {submission?.grade && (
                   <div className="submission-grade">
                     <div className="grade-score">
-                      <strong>Grade:</strong> {submission.grade.score} / {submission.grade.total}
+                      <strong>Grade:</strong> {submission.grade.score != null ? parseFloat(Number(submission.grade.score).toFixed(2)) : 0} / {submission.grade.total != null ? parseFloat(Number(submission.grade.total).toFixed(2)) : 0}
                     </div>
                     {submission.grade.teacher_comment && (
                       <div className="teacher-comment">

@@ -94,3 +94,19 @@ export interface Announcement {
   is_posted: boolean;
 }
 
+export interface ResourceLink {
+  label: string;
+  url: string;
+}
+
+export interface Resource {
+  id: number;
+  course: number;
+  course_id: number;
+  title: string;
+  description?: string;
+  links: ResourceLink[];
+  order: number;
+  created_at: string;
+}
+

@@ -13,7 +13,10 @@ const TeacherAnnouncements: React.FC = () => {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '' });
+  const [editAnnouncement, setEditAnnouncement] = useState({ title: '', content: '' });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -72,6 +75,39 @@ const TeacherAnnouncements: React.FC = () => {
     }
   };
 
+  const handleEdit = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement);
+    setEditAnnouncement({ title: announcement.title, content: announcement.content });
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAnnouncement || !selectedCourse || !editAnnouncement.title.trim() || !editAnnouncement.content.trim()) {
+      alert('Please fill in both title and content');
+      return;
+    }
+
+    try {
+      await announcementAPI.update(editingAnnouncement.id, {
+        course: selectedCourse.id,
+        title: editAnnouncement.title,
+        content: editAnnouncement.content,
+        is_posted: editingAnnouncement.is_posted,
+      });
+      setShowEditModal(false);
+      setEditingAnnouncement(null);
+      setEditAnnouncement({ title: '', content: '' });
+      await loadAnnouncements();
+    } catch (error: any) {
+      console.error('Error updating announcement:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.detail || 
+                          'Error updating announcement';
+      alert(errorMessage);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -86,6 +122,9 @@ const TeacherAnnouncements: React.FC = () => {
       <Header />
       
       <div className="announcements-content">
+        {selectedCourse && (
+          <h2 className="teacher-course-title">{selectedCourse.course_name}</h2>
+        )}
         <nav className="teacher-nav">
           <button onClick={() => navigate('/')}>
             📊 Overview
@@ -147,6 +186,46 @@ const TeacherAnnouncements: React.FC = () => {
           </div>
         )}
 
+        {showEditModal && editingAnnouncement && (
+          <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h2>Edit Announcement</h2>
+              <form onSubmit={handleUpdate}>
+                <div className="form-field">
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    value={editAnnouncement.title}
+                    onChange={(e) => setEditAnnouncement(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Announcement title"
+                    required
+                  />
+                </div>
+                <div className="form-field">
+                  <label>Content</label>
+                  <textarea
+                    value={editAnnouncement.content}
+                    onChange={(e) => setEditAnnouncement(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Announcement content"
+                    rows={6}
+                    required
+                  />
+                </div>
+                <div className="modal-actions">
+                  <button type="button" onClick={() => {
+                    setShowEditModal(false);
+                    setEditingAnnouncement(null);
+                    setEditAnnouncement({ title: '', content: '' });
+                  }}>
+                    Cancel
+                  </button>
+                  <button type="submit">Update</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         <div className="announcements-list">
           {loading ? (
             <div>Loading...</div>
@@ -163,12 +242,22 @@ const TeacherAnnouncements: React.FC = () => {
                   <span className="announcement-date">{formatDate(announcement.created_at)}</span>
                   {announcement.is_posted && <span className="posted-badge">Posted</span>}
                 </div>
-                <button 
-                  className="delete-btn"
-                  onClick={() => handleDelete(announcement.id)}
-                >
-                  🗑️
-                </button>
+                <div className="announcement-actions">
+                  <button 
+                    className="edit-btn"
+                    onClick={() => handleEdit(announcement)}
+                    title="Edit announcement"
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    className="delete-btn"
+                    onClick={() => handleDelete(announcement.id)}
+                    title="Delete announcement"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             ))
           )}

@@ -32,11 +32,17 @@ const Login: React.FC = () => {
       }
       navigate('/');
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.detail || 
-                          err.message || 
-                          'An error occurred. Please try again.';
-      setError(errorMessage);
+      // Handle login errors specifically
+      if (isLogin && err.response?.status === 400) {
+        setError('password and username incorrect');
+      } else {
+        const errorMessage = err.response?.data?.error || 
+                            err.response?.data?.detail || 
+                            err.response?.data?.non_field_errors?.[0] ||
+                            err.message || 
+                            'An error occurred. Please try again.';
+        setError(errorMessage);
+      }
       console.error('Auth error:', err.response?.data || err);
     }
   };
@@ -65,7 +71,7 @@ const Login: React.FC = () => {
         last_name: '',
         isStudent: true,
         enrollment_code: '',
-      });
+      } as RegisterData);
     }
     setError('');
   };
@@ -96,7 +102,7 @@ const Login: React.FC = () => {
 
       <div className="login-card">
         <form onSubmit={handleSubmit} className="login-form">
-          <h2>{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+          <h2>{isLogin ? 'Welcome Back' : 'Create Student Account'}</h2>
           <p className="subtitle">{isLogin ? 'Login to your account.' : 'Sign up to get started.'}</p>
 
           {error && <div className="error-message">{error}</div>}
@@ -153,68 +159,29 @@ const Login: React.FC = () => {
           </div>
 
           {!isLogin && (
-            <>
-              <div className="radio-group">
-                <label className="radio-label">I am a:</label>
-                <ul className="radio-list">
-                  <li>
-                    <label>
-                      <input
-                        type="radio"
-                        name="isStudent"
-                        value="true"
-                        checked={(formData as RegisterData).isStudent === true}
-                        onChange={() => setFormData(prev => ({ 
-                          ...prev, 
-                          isStudent: true,
-                          enrollment_code: (prev as RegisterData).enrollment_code || ''
-                        }))}
-                      />
-                      <span className="radio-custom"></span>
-                      Student
-                    </label>
-                  </li>
-                  <li>
-                    <label>
-                      <input
-                        type="radio"
-                        name="isStudent"
-                        value="false"
-                        checked={(formData as RegisterData).isStudent === false}
-                        onChange={() => setFormData(prev => ({ 
-                          ...prev, 
-                          isStudent: false, 
-                          enrollment_code: '' 
-                        }))}
-                      />
-                      <span className="radio-custom"></span>
-                      Teacher
-                    </label>
-                  </li>
-                </ul>
-              </div>
-              
-              {(formData as RegisterData).isStudent && (
-                <div className="form-field">
-                  <label htmlFor="enrollment_code">Enrollment Code *</label>
-                  <input
-                    type="text"
-                    id="enrollment_code"
-                    name="enrollment_code"
-                    value={(formData as RegisterData).enrollment_code || ''}
-                    onChange={handleChange}
-                    placeholder="Enter course enrollment code"
-                    required
-                  />
-                  <p className="field-hint">Ask your teacher for the enrollment code</p>
-                </div>
-              )}
-            </>
+            <div className="form-field">
+              <label htmlFor="enrollment_code">Enrollment Code *</label>
+              <input
+                type="text"
+                id="enrollment_code"
+                name="enrollment_code"
+                value={(formData as RegisterData).enrollment_code || ''}
+                onChange={handleChange}
+                placeholder="Enter course enrollment code"
+                required
+              />
+            </div>
           )}
 
           <button type="submit" className="submit-button">
             {isLogin ? 'Login' : 'Register'}
           </button>
+
+          {isLogin && (
+            <p className="forgot-password-text">
+              Forgot your password? Contact your teacher to reset it.
+            </p>
+          )}
         </form>
       </div>
     </div>

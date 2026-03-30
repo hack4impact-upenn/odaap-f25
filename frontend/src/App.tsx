@@ -7,6 +7,7 @@ import StudentMain from './pages/StudentMain';
 import StudentHW from './pages/StudentHW';
 import StudentModuleVideo from './pages/StudentModuleVideo';
 import StudentFieldAssignment from './pages/StudentFieldAssignment';
+import StudentResources from './pages/StudentResources';
 import TeacherMain from './pages/TeacherMain';
 import TeacherModules from './pages/TeacherModules';
 import TeacherEditModule from './pages/TeacherEditModule';
@@ -86,6 +87,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <StudentFieldAssignment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/resources"
+            element={
+              <ProtectedRoute>
+                <StudentResources />
               </ProtectedRoute>
             }
           />

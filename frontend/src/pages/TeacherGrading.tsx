@@ -234,6 +234,9 @@ const TeacherGrading: React.FC = () => {
       <Header />
       
       <div className="grading-content">
+        {selectedCourse && (
+          <h2 className="teacher-course-title">{selectedCourse.course_name}</h2>
+        )}
         <nav className="teacher-nav">
           <button onClick={() => navigate('/')}>
             📊 Overview
@@ -254,30 +257,8 @@ const TeacherGrading: React.FC = () => {
 
         <h1>Grading</h1>
 
-        <div className="grading-selectors">
-          <div className="selector-group">
-            <label htmlFor="course-select">Select Course:</label>
-            <select
-              id="course-select"
-              className="course-select"
-              value={selectedCourse?.id || ''}
-              onChange={(e) => {
-                const course = courses.find(c => c.id === Number(e.target.value));
-                if (course) {
-                  setSelectedCourse(course);
-                  setSelectedModule(null);
-                }
-              }}
-            >
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.course_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedCourse && (
+        {selectedCourse && (
+          <div className="grading-selectors">
             <div className="selector-group">
               <label htmlFor="module-select">Select Module:</label>
               <select
@@ -297,8 +278,8 @@ const TeacherGrading: React.FC = () => {
                 ))}
               </select>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {selectedModule && questions.length > 0 && (
           <div className="grading-container">
@@ -549,6 +530,7 @@ const TeacherGrading: React.FC = () => {
           </div>
         )}
       </div>
+
     </div>
   );
 };

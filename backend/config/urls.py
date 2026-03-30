@@ -23,7 +23,7 @@ from core.serializers import CustomTokenObtainPairSerializer
 # views
 from core.views import (
     CourseViewSet, ModuleViewSet, QuestionViewSet, SubmissionViewSet, 
-    AnnouncementViewSet, register
+    AnnouncementViewSet, ResourceViewSet, register, invite_teacher, change_password, reset_user_password
 )
 
 # Create router and register viewsets
@@ -33,6 +33,7 @@ router.register(r'modules', ModuleViewSet, basename='module')
 router.register(r'questions', QuestionViewSet, basename='question')
 router.register(r'submissions', SubmissionViewSet, basename='submission')
 router.register(r'announcements', AnnouncementViewSet, basename='announcement')
+router.register(r'resources', ResourceViewSet, basename='resource')
 
 # Custom token view that uses email
 class EmailTokenObtainPairView(TokenObtainPairView):
@@ -43,6 +44,9 @@ urlpatterns = [
     path("api/token/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/register/", register, name="register"),
+    path("api/invite-teacher/", invite_teacher, name="invite_teacher"),
+    path("api/change-password/", change_password, name="change_password"),
+    path("api/reset-user-password/", reset_user_password, name="reset_user_password"),
     # Include router URLs (provides all ViewSet endpoints)
     path('api/', include(router.urls)),
 ]

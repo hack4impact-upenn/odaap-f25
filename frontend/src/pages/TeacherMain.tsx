@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { useCourse } from '../contexts/CourseContext';
-import { courseAPI, moduleAPI, submissionAPI, questionAPI } from '../services/api';
+import { courseAPI, moduleAPI, submissionAPI, questionAPI, authAPI } from '../services/api';
 import type { Module, Submission, User } from '../types';
 import './TeacherMain.css';
 
@@ -16,6 +16,10 @@ const TeacherMain: React.FC = () => {
   const [moduleProgress, setModuleProgress] = useState<Record<number, number>>({});
   const [studentGrades, setStudentGrades] = useState<Record<number, { grade: number; overdue: number }>>({});
   const [loading, setLoading] = useState(true);
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<number | null>(null);
+  const [resetPasswordName, setResetPasswordName] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -141,6 +145,27 @@ const TeacherMain: React.FC = () => {
     setStudentGrades(gradesMap);
   };
 
+  const handleResetPassword = async () => {
+    if (!resetPasswordUserId || !resetNewPassword.trim()) return;
+    if (resetNewPassword.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+    try {
+      setIsResettingPassword(true);
+      await authAPI.resetUserPassword(resetPasswordUserId, resetNewPassword);
+      alert(`Password reset successfully for ${resetPasswordName}`);
+      setResetPasswordUserId(null);
+      setResetNewPassword('');
+      setResetPasswordName('');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Failed to reset password';
+      alert(msg);
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="teacher-main">
@@ -157,6 +182,9 @@ const TeacherMain: React.FC = () => {
       <Header />
       
       <div className="teacher-content">
+        {selectedCourse && (
+          <h2 className="teacher-course-title">{selectedCourse.course_name}</h2>
+        )}
         <nav className="teacher-nav">
           <button 
             className={activeTab === 'overview' ? 'active' : ''}
@@ -236,6 +264,17 @@ const TeacherMain: React.FC = () => {
                             : 'No Overdue Assignments'}
                         </span>
                       </div>
+                      <button
+                        className="reset-password-btn"
+                        onClick={() => {
+                          setResetPasswordUserId(student.id);
+                          setResetPasswordName(`${student.first_name} ${student.last_name}`);
+                          setResetNewPassword('');
+                        }}
+                        title="Reset password"
+                      >
+                        🔑 Reset Password
+                      </button>
                     </div>
                   );
                 })}
@@ -258,6 +297,39 @@ const TeacherMain: React.FC = () => {
         )}
 
       </div>
+
+      {resetPasswordUserId && (
+        <div className="reset-password-overlay" onClick={() => { setResetPasswordUserId(null); setResetNewPassword(''); }}>
+          <div className="reset-password-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Reset Password</h3>
+            <p className="reset-password-info">Set a new password for <strong>{resetPasswordName}</strong></p>
+            <div className="reset-password-field">
+              <label>New Password</label>
+              <input
+                type="text"
+                value={resetNewPassword}
+                onChange={(e) => setResetNewPassword(e.target.value)}
+                placeholder="Enter new password (min 6 characters)"
+              />
+            </div>
+            <div className="reset-password-actions">
+              <button
+                className="reset-password-submit"
+                onClick={handleResetPassword}
+                disabled={isResettingPassword || resetNewPassword.length < 6}
+              >
+                {isResettingPassword ? 'Resetting...' : 'Reset Password'}
+              </button>
+              <button
+                className="reset-password-cancel"
+                onClick={() => { setResetPasswordUserId(null); setResetNewPassword(''); }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

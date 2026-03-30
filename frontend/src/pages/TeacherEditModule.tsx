@@ -388,7 +388,7 @@ const TeacherEditModule: React.FC = () => {
               marginTop: '12px',
               color: '#856404'
             }}>
-              ⚠️ This module has been posted to students and cannot be edited. Students may have already started working on it.
+              This module has been posted to students and cannot be edited. Students may have already started working on it.
             </div>
           )}
         </div>

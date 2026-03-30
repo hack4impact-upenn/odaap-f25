@@ -3,7 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
-from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers, Announcement
+from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers, Announcement, Resource
 
 User = get_user_model()
 
@@ -32,11 +32,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            raise serializers.ValidationError('No active account found with the given credentials.')
+            raise serializers.ValidationError('password and username incorrect')
         
         # Check password
         if not user.check_password(password):
-            raise serializers.ValidationError('No active account found with the given credentials.')
+            raise serializers.ValidationError('password and username incorrect')
         
         if not user.is_active:
             raise serializers.ValidationError('User account is disabled.')
@@ -265,4 +265,21 @@ class QuestionToCorrectAnswersSerializer(serializers.ModelSerializer):
             'question',
             'correct_answer'
         ]
+
+class ResourceSerializer(serializers.ModelSerializer):
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+
+    class Meta:
+        model = Resource
+        fields = [
+            'id',
+            'course',
+            'course_id',
+            'title',
+            'description',
+            'links',
+            'order',
+            'created_at'
+        ]
+        read_only_fields = ['created_at']
         

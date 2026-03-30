@@ -13,6 +13,8 @@ const TeacherModules: React.FC = () => {
   const [moduleQuestions, setModuleQuestions] = useState<Record<number, Question[]>>({});
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [showPostConfirm, setShowPostConfirm] = useState(false);
+  const [moduleToPost, setModuleToPost] = useState<Module | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -61,31 +63,46 @@ const TeacherModules: React.FC = () => {
     });
   };
 
-  const handlePostModule = async (moduleId: number) => {
+  const handlePostClick = (moduleId: number) => {
+    const module = modules.find(m => m.id === moduleId);
+    if (!module) return;
+    
+    // Find the index of this module
+    const moduleIndex = modules.findIndex(m => m.id === moduleId);
+    
+    // Check if all previous modules are posted
+    const previousModules = modules.slice(0, moduleIndex);
+    const allPreviousPosted = previousModules.every(m => m.is_posted);
+    
+    if (!allPreviousPosted && moduleIndex > 0) {
+      alert('You must post all previous modules before posting this one. Students complete modules sequentially.');
+      return;
+    }
+    
+    // Show confirmation modal
+    setModuleToPost(module);
+    setShowPostConfirm(true);
+  };
+
+  const handlePostConfirm = async () => {
+    if (!moduleToPost) return;
+    
     try {
-      const module = modules.find(m => m.id === moduleId);
-      if (!module) return;
-      
-      // Find the index of this module
-      const moduleIndex = modules.findIndex(m => m.id === moduleId);
-      
-      // Check if all previous modules are posted
-      const previousModules = modules.slice(0, moduleIndex);
-      const allPreviousPosted = previousModules.every(m => m.is_posted);
-      
-      if (!allPreviousPosted && moduleIndex > 0) {
-        alert('You must post all previous modules before posting this one. Students complete modules sequentially.');
-        return;
-      }
-      
-      await moduleAPI.update(moduleId, { ...module, is_posted: true });
+      await moduleAPI.update(moduleToPost.id, { ...moduleToPost, is_posted: true });
       if (selectedCourse) {
         await loadModules(selectedCourse.id);
       }
+      setShowPostConfirm(false);
+      setModuleToPost(null);
     } catch (error) {
       console.error('Error posting module:', error);
       alert('Error posting module');
     }
+  };
+
+  const handlePostCancel = () => {
+    setShowPostConfirm(false);
+    setModuleToPost(null);
   };
 
   const formatDate = (dateString?: string) => {
@@ -133,6 +150,9 @@ const TeacherModules: React.FC = () => {
       <Header />
       
       <div className="modules-content">
+        {selectedCourse && (
+          <h2 className="teacher-course-title">{selectedCourse.course_name}</h2>
+        )}
         <nav className="teacher-nav">
           <button onClick={() => navigate('/')}>
             📊 Overview
@@ -249,7 +269,7 @@ const TeacherModules: React.FC = () => {
                       ) : (
                         <button 
                           className="btn-post"
-                          onClick={() => handlePostModule(module.id)}
+                          onClick={() => handlePostClick(module.id)}
                           disabled={!canPost}
                           title={!canPost ? "You must post previous modules first" : ""}
                         >
@@ -276,6 +296,39 @@ const TeacherModules: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Post Confirmation Modal */}
+      {showPostConfirm && moduleToPost && (
+        <div className="modal-overlay" onClick={handlePostCancel}>
+          <div className="modal-content post-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Reminder</h2>
+            <div className="post-confirm-message">
+              <p className="warning-text">
+                Once you post this module, you will not be able to edit it.
+              </p>
+              <p className="confirm-question">
+                Are you sure you want to post <strong>"{moduleToPost.module_name}"</strong> to students?
+              </p>
+            </div>
+            <div className="modal-actions">
+              <button 
+                type="button" 
+                onClick={handlePostCancel}
+                className="btn-cancel"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handlePostConfirm}
+                className="btn-confirm"
+              >
+                Post to Students
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

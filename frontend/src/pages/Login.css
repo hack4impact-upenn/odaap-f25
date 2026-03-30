@@ -94,7 +94,7 @@
 }
 
 .subtitle {
-  margin: 0 0 24px 0;
+  margin: 0 0 10px 0;
   color: #666;
   font-size: 14px;
   font-weight: 400;
@@ -226,7 +226,7 @@
 }
 
 .submit-button {
-  background: #4caf50;
+  background: #1976d2;
   color: white;
   padding: 14px 24px;
   border: none;
@@ -240,12 +240,19 @@
 }
 
 .submit-button:hover {
-  background: #45a049;
+  background: #1565c0;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(25, 118, 210, 0.3);
 }
 
 .submit-button:active {
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.forgot-password-text {
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+  margin: 0;
 }

@@ -177,3 +177,19 @@ class QuestionToCorrectAnswers(models.Model):
 
     def __str__(self):
         return self.question.question_text
+
+
+class Resource(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='resources')
+    title = models.TextField()
+    description = models.TextField(null=True, blank=True)
+    links = models.JSONField(default=list, blank=True)
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Resources"
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return self.title

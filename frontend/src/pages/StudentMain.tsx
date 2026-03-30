@@ -48,7 +48,8 @@ const StudentMain: React.FC = () => {
         
         // Load modules for the first course (or you could show all)
         const courseModules = await courseAPI.getModules(currentCourse.id);
-        setModules(courseModules.sort((a, b) => a.module_order - b.module_order));
+        const publishedModules = courseModules.filter(m => m.is_posted);
+        setModules(publishedModules.sort((a, b) => a.module_order - b.module_order));
         
         // Load announcements for the course
         try {
@@ -161,7 +162,7 @@ const StudentMain: React.FC = () => {
         status: 'completed',
         label: 'Completed',
         icon: '✓',
-        grade: totalPossible > 0 ? `${totalScore}/${totalPossible}` : null
+        grade: totalPossible > 0 ? `${parseFloat(totalScore.toFixed(2))}/${parseFloat(totalPossible.toFixed(2))}` : null
       };
     }
     
@@ -223,78 +224,80 @@ const StudentMain: React.FC = () => {
       <Header />
       
       <div className="student-content">
-        <h2 className="term-title">Fall 25</h2>
+        <h2 className="term-title">{currentCourse?.course_name || 'Course'}</h2>
         
-        <div className="main-grid">
-          {/* Left Column */}
-          <div className="left-column">
-            {/* Announcements Card */}
-            <div className="card announcements-card">
-              <h3 className="card-title">Announcements</h3>
-              <div className="announcements-list">
-                {announcements.length === 0 ? (
-                  <div className="announcement-item">
+        {/* Top Layer: Announcements (full width) */}
+        <div className="announcements-section">
+          <div className="card announcements-card">
+            <h3 className="card-title">Announcements</h3>
+            <div className="announcements-list">
+              {announcements.length === 0 ? (
+                <div className="announcement-item">
+                  <div className="announcement-indicator"></div>
+                  <div className="announcement-content">
+                    <h4 className="announcement-title">No announcements yet</h4>
+                    <p className="announcement-description">Check back later for updates</p>
+                  </div>
+                </div>
+              ) : (
+                announcements.map((announcement) => (
+                  <div key={announcement.id} className="announcement-item">
                     <div className="announcement-indicator"></div>
                     <div className="announcement-content">
-                      <h4 className="announcement-title">No announcements yet</h4>
-                      <p className="announcement-description">Check back later for updates</p>
-                    </div>
-                  </div>
-                ) : (
-                  announcements.map((announcement) => (
-                    <div key={announcement.id} className="announcement-item">
-                      <div className="announcement-indicator"></div>
-                      <div className="announcement-content">
-                        <h4 className="announcement-title">{announcement.title}</h4>
-                        <p className="announcement-description">{announcement.content}</p>
+                      <h4 className="announcement-title">{announcement.title}</h4>
+                      <p className="announcement-description">{announcement.content}</p>
+                      <div className="announcement-meta">
+                        <span className="announcement-teacher">By {announcement.created_by_name}</span>
                         <span className="announcement-date">
                           {formatDate(announcement.created_at)}
                         </span>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Right Column */}
-          <div className="right-column">
-            {/* Weekly Zoom Meeting Link Card */}
-            {currentCourse && (
-              <div className="card zoom-card">
-                <h3 className="card-title">Weekly Zoom Meeting Link</h3>
-                <p className="zoom-schedule">Every Friday, Saturday (2:00 - 3:00 pm)</p>
-                {currentCourse.zoom_link ? (
-                  <button 
-                    className="zoom-button"
-                    onClick={() => {
-                      // Ensure the zoom link is a valid URL
-                      let zoomUrl = currentCourse.zoom_link;
-                      // If it doesn't start with http, add https://
-                      if (zoomUrl && !zoomUrl.startsWith('http://') && !zoomUrl.startsWith('https://')) {
-                        zoomUrl = 'https://' + zoomUrl;
-                      }
-                      if (zoomUrl) {
-                        window.open(zoomUrl, '_blank', 'noopener,noreferrer');
-                      }
-                    }}
-                  >
-                    Join Meeting
-                    <span className="icon-arrow">→</span>
-                  </button>
-                ) : (
-                  <p className="zoom-unavailable">Zoom link not set. Please contact your teacher.</p>
-                )}
-              </div>
-            )}
+        {/* Bottom Layer: Zoom and Assignments side by side */}
+        <div className="bottom-grid">
+          {/* Weekly Zoom Meeting Link Card */}
+          {currentCourse && (
+            <div className="card zoom-card">
+              <h3 className="card-title">Weekly Zoom Meeting Link</h3>
+              <p className="zoom-schedule">Every Friday, Saturday (2:00 - 3:00 pm)</p>
+              {currentCourse.zoom_link ? (
+                <button 
+                  className="zoom-button"
+                  onClick={() => {
+                    // Ensure the zoom link is a valid URL
+                    let zoomUrl = currentCourse.zoom_link;
+                    // If it doesn't start with http, add https://
+                    if (zoomUrl && !zoomUrl.startsWith('http://') && !zoomUrl.startsWith('https://')) {
+                      zoomUrl = 'https://' + zoomUrl;
+                    }
+                    if (zoomUrl) {
+                      window.open(zoomUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                >
+                  Join Meeting
+                  <span className="icon-arrow">→</span>
+                </button>
+              ) : (
+                <p className="zoom-unavailable">Zoom link not set. Please contact your teacher.</p>
+              )}
+            </div>
+          )}
 
-            {/* Upcoming Assignments Card */}
-            <div className="card assignments-card">
-              <h3 className="card-title">Upcoming Assignments</h3>
-              {upcomingCount > 0 ? (
-                <>
-                  <p className="assignment-count">{upcomingCount} assignment{upcomingCount !== 1 ? 's' : ''} to complete</p>
+          {/* Upcoming Assignments Card */}
+          <div className="card assignments-card">
+            <h3 className="card-title">Upcoming Assignments</h3>
+            {upcomingCount > 0 ? (
+              <>
+                <p className="assignment-count">{upcomingCount} assignment{upcomingCount !== 1 ? 's' : ''} to complete</p>
+                <div className="assignments-list">
                   {upcomingModules.slice(0, 3).map((module) => (
                     <div 
                       key={module.id}
@@ -310,18 +313,20 @@ const StudentMain: React.FC = () => {
                       }}
                     >
                       <h4 className="assignment-name">{module.module_name}</h4>
-                      <p className="assignment-description">{module.module_description || 'Description'}</p>
+                      {module.module_description && (
+                        <p className="assignment-description">{module.module_description}</p>
+                      )}
                       <div className="assignment-due">
                         <span className="icon-clock">🕐</span>
                         <span>Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
                       </div>
                     </div>
                   ))}
-                </>
-              ) : (
-                <p className="assignment-count">No upcoming assignments</p>
-              )}
-            </div>
+                </div>
+              </>
+            ) : (
+              <p className="assignment-count">No upcoming assignments</p>
+            )}
           </div>
         </div>
 
@@ -351,7 +356,9 @@ const StudentMain: React.FC = () => {
                     </div>
                     <div className="module-info">
                       <h3 className="module-name">{module.module_name}</h3>
-                      <p className="module-description">{module.module_description || 'Description'}</p>
+                      {module.module_description && (
+                        <p className="module-description">{module.module_description}</p>
+                      )}
                       <div className="module-due">
                         <span className="icon-clock">🕐</span>
                         <span>Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
@@ -411,6 +418,21 @@ const StudentMain: React.FC = () => {
               Complete All Modules First
               <span className="icon-lock">🔒</span>
             </button>
+          </div>
+        </div>
+
+        {/* Resources Link */}
+        <div className="resources-nav-section">
+          <div
+            className="card resources-nav-card"
+            onClick={() => navigate('/student/resources')}
+          >
+            <span className="resources-nav-icon">📚</span>
+            <div>
+              <h3 className="card-title">Resources</h3>
+              <p className="resources-nav-description">View course materials, links, and helpful resources</p>
+            </div>
+            <span className="resources-nav-arrow">→</span>
           </div>
         </div>
 

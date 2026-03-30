@@ -2,11 +2,97 @@
   min-height: 100vh;
   background: #f5f5f5;
 }
+.teacher-settings * {
+  box-sizing: border-box;
+}
 
 .settings-content {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
+}
+
+.zoom-card {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.zoom-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+}
+
+.zoom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.zoom-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.zoom-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.zoom-form input {
+  width: 100%;
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.zoom-form input:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.zoom-link-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.zoom-link-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-zoom-button {
+  flex-shrink: 0;
+  padding: 12px 24px;
+  background: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.update-zoom-button:hover {
+  background: #555;
+}
+
+.teacher-course-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #000;
+  margin: 0 0 16px 0;
 }
 
 .teacher-nav {
@@ -66,8 +152,11 @@
 .course-select {
   flex: 1;
   max-width: 400px;
-  padding: 10px 12px;
-  background: #f5f5f5;
+  padding: 10px 36px 10px 12px;
+  background: #f5f5f5 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 14px;
@@ -184,8 +273,11 @@
 }
 
 .source-course-select {
-  padding: 12px;
-  background: #f5f5f5;
+  padding: 12px 36px 12px 12px;
+  background: #f5f5f5 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 14px;
@@ -219,6 +311,8 @@
   border-radius: 12px;
   padding: 24px;
   border: 1px solid #e0e0e0;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .settings-card h2 {
@@ -236,15 +330,6 @@
   background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
 }
 
-.zoom-card {
-  grid-column: 1 / -1;
-}
-
-.zoom-description {
-  font-size: 14px;
-  color: #666;
-  margin: 0 0 20px 0;
-}
 
 .code-display {
   display: flex;
@@ -279,54 +364,10 @@
   background: #555;
 }
 
-.zoom-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
 
-.zoom-form .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
-.zoom-form label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
 
-.zoom-form input {
-  padding: 12px;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-}
 
-.zoom-form input:focus {
-  outline: none;
-  border-color: #9c27b0;
-  background: white;
-}
-
-.update-zoom-button {
-  padding: 12px 24px;
-  background: #333;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-  align-self: flex-start;
-}
-
-.update-zoom-button:hover {
-  background: #555;
-}
 
 .ceu-card {
   grid-column: 1 / -1;
@@ -387,57 +428,51 @@
   background: #555;
 }
 
-.enrollment-code-card {
+.people-card {
   grid-column: 1 / -1;
 }
 
-.enrollment-description {
+.people-subsection {
+  margin: 0;
+}
+
+.people-subsection-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 6px 0;
+}
+
+.people-subsection-description {
   font-size: 14px;
   color: #666;
-  margin: 0 0 20px 0;
+  margin: 0 0 16px 0;
 }
 
-.enrollment-form {
+.people-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 24px 0;
+}
+
+.enrollment-code-readonly {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.enrollment-form .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.enrollment-form label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.enrollment-code-display {
-  display: flex;
+  align-items: center;
   gap: 12px;
-  align-items: flex-start;
 }
 
-.enrollment-code-input {
-  flex: 1;
-  padding: 12px;
+.enrollment-code-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #9c27b0;
+  letter-spacing: 4px;
+  padding: 12px 20px;
   background: #f5f5f5;
-  border: 1px solid #ddd;
   border-radius: 8px;
-  font-size: 14px;
-  font-family: 'Courier New', monospace;
+  border: 1px solid #e0e0e0;
 }
 
-.enrollment-code-input:focus {
-  outline: none;
-  border-color: #9c27b0;
-  background: white;
-}
-
-.update-enrollment-button {
+.copy-code-button {
   padding: 12px 24px;
   background: #333;
   color: white;
@@ -450,18 +485,445 @@
   white-space: nowrap;
 }
 
-.update-enrollment-button:hover {
+.copy-code-button:hover {
   background: #555;
 }
 
-.current-code {
-  font-size: 13px;
-  color: #666;
-  margin: 8px 0 0 0;
+.no-code-message {
+  font-size: 14px;
+  color: #999;
+  margin: 0;
 }
 
-.current-code strong {
-  color: #9c27b0;
-  font-family: 'Courier New', monospace;
+.add-teacher-toggle-button {
+  padding: 10px 20px;
+  background: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
   font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-teacher-toggle-button:hover {
+  background: #7b1fa2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.3);
+}
+
+.add-teacher-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.add-teacher-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-teacher-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.add-teacher-form input[type="text"],
+.add-teacher-form input[type="email"] {
+  width: 100%;
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.add-teacher-form input[type="text"]:focus,
+.add-teacher-form input[type="email"]:focus {
+  outline: none;
+  border-color: #9c27b0;
+  background: white;
+}
+
+.add-teacher-form-row {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.add-teacher-form-row .form-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.course-select-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.course-select-item {
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.course-select-item:hover {
+  border-color: #9c27b0;
+  background: #faf0fc;
+}
+
+.course-select-item.selected {
+  background: #9c27b0;
+  color: white;
+  border-color: #9c27b0;
+}
+
+.course-select-item.selected:hover {
+  background: #7b1fa2;
+}
+
+.add-teacher-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.add-teacher-submit-button {
+  padding: 12px 24px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-teacher-submit-button:hover:not(:disabled) {
+  background: #7b1fa2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.3);
+}
+
+.add-teacher-submit-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.add-teacher-cancel-button {
+  padding: 12px 24px;
+  background: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-teacher-cancel-button:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.resources-card {
+  grid-column: 1 / -1;
+}
+
+.resources-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+}
+
+.resources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.resource-item {
+  padding: 16px;
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.resource-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.resource-item-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 4px 0;
+}
+
+.resource-item-description {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.resource-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.resource-edit-btn,
+.resource-delete-btn {
+  padding: 4px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  background: white;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.resource-edit-btn:hover {
+  border-color: #9c27b0;
+  color: #9c27b0;
+}
+
+.resource-delete-btn:hover {
+  border-color: #e53935;
+  color: #e53935;
+}
+
+.resource-item-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.resource-link-pill {
+  padding: 6px 14px;
+  background: #e8eaf6;
+  color: #1a237e;
+  border-radius: 20px;
+  font-size: 13px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.resource-link-pill:hover {
+  background: #c5cae9;
+}
+
+.add-resource-button {
+  padding: 10px 20px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-resource-button:hover {
+  background: #7b1fa2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.3);
+}
+
+.resource-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.resource-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resource-form label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.resource-form input[type="text"],
+.resource-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.resource-form input[type="text"]:focus,
+.resource-form textarea:focus {
+  outline: none;
+  border-color: #9c27b0;
+}
+
+.resource-form textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.resource-links-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resource-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.resource-link-label-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.resource-link-url-input {
+  flex: 2;
+  min-width: 0;
+}
+
+.resource-link-remove {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 18px;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.resource-link-remove:hover {
+  border-color: #e53935;
+  color: #e53935;
+}
+
+.resource-add-link-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: all 0.2s;
+}
+
+.resource-add-link-btn:hover {
+  border-color: #9c27b0;
+  color: #9c27b0;
+}
+
+.resource-form-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.resource-save-btn {
+  padding: 10px 24px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.resource-save-btn:hover:not(:disabled) {
+  background: #7b1fa2;
+}
+
+.resource-save-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.resource-cancel-btn {
+  padding: 10px 24px;
+  background: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.resource-cancel-btn:hover {
+  background: #f5f5f5;
+}
+
+.danger-card {
+  grid-column: 1 / -1;
+}
+
+.danger-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+}
+
+.delete-course-button {
+  padding: 12px 24px;
+  background: #e53935;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-course-button:hover:not(:disabled) {
+  background: #c62828;
+}
+
+.delete-course-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
