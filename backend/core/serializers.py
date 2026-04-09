@@ -3,7 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
-from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers
+from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers, Announcement, Resource
 
 User = get_user_model()
 
@@ -32,11 +32,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            raise serializers.ValidationError('No active account found with the given credentials.')
+            raise serializers.ValidationError('password and username incorrect')
         
         # Check password
         if not user.check_password(password):
-            raise serializers.ValidationError('No active account found with the given credentials.')
+            raise serializers.ValidationError('password and username incorrect')
         
         if not user.is_active:
             raise serializers.ValidationError('User account is disabled.')
@@ -76,7 +76,11 @@ class CourseSerializer(serializers.ModelSerializer):
             'course_name',
             'course_description',
             'zoom_link',
-            'score_total'
+            'score_total',
+            'student_enrollment_code',
+            'ceu_credit_application_link',
+            'ceu_act48_application_link',
+            'ceu_program_evaluation_link'
         ]
        
 
@@ -118,7 +122,7 @@ class QuestionSerializer(serializers.ModelSerializer):
             'score_total',
             'correct_answers'
         ]
-        read_only_fields = ['module_id']
+        read_only_fields = ['module_id']  # module_id is read-only, but module can be set during creation
     
     def get_correct_answers(self, obj):
         """Get all correct answers for this question"""
@@ -158,10 +162,30 @@ class SubmissionSerializer(serializers.ModelSerializer):
             return {
                 'score': grade.score,
                 'total': grade.total,
-                'is_overdue': grade.is_overdue
+                'is_overdue': grade.is_overdue,
+                'teacher_comment': grade.teacher_comment
             }
         except UserQuestionGrade.DoesNotExist:
             return None
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+    
+    class Meta:
+        model = Announcement
+        fields = [
+            'id',
+            'course',
+            'course_id',
+            'title',
+            'content',
+            'created_by',
+            'created_by_name',
+            'created_at',
+            'is_posted'
+        ]
+        read_only_fields = ['created_by', 'created_at']
 
 class UserModuleGradeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -193,7 +217,8 @@ class UserQuestionGradeSerializer(serializers.ModelSerializer):
             'question',
             'user',
             'score',
-            'total'
+            'total',
+            'teacher_comment'
         ]
 
 class CourseToStudentsSerializer(serializers.ModelSerializer):
@@ -240,4 +265,21 @@ class QuestionToCorrectAnswersSerializer(serializers.ModelSerializer):
             'question',
             'correct_answer'
         ]
+
+class ResourceSerializer(serializers.ModelSerializer):
+    course_id = serializers.IntegerField(source='course.id', read_only=True)
+
+    class Meta:
+        model = Resource
+        fields = [
+            'id',
+            'course',
+            'course_id',
+            'title',
+            'description',
+            'links',
+            'order',
+            'created_at'
+        ]
+        read_only_fields = ['created_at']
         

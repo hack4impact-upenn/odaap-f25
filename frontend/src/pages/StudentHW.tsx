@@ -65,13 +65,30 @@ const StudentHW: React.FC = () => {
       }
       
       // Load module
-      const moduleData = await moduleAPI.getById(Number(moduleId));
-      setModule(moduleData);
+      try {
+        const moduleData = await moduleAPI.getById(Number(moduleId));
+        setModule(moduleData);
+      } catch (error: any) {
+        console.error('Error loading module:', error);
+        if (error.response?.status === 404) {
+          alert('Module not found. Please check with your teacher.');
+          navigate('/');
+          return;
+        } else if (error.response?.status === 403) {
+          alert(error.response?.data?.error || 'You do not have access to this module.');
+          navigate('/');
+          return;
+        }
+        alert('Error loading module. Please try again.');
+        navigate('/');
+        return;
+      }
 
       // Load questions (this will fail if module is not accessible)
+      let sortedQuestions: Question[] = [];
       try {
         const questionsData = await moduleAPI.getQuestions(Number(moduleId));
-        const sortedQuestions = questionsData.sort((a, b) => a.question_order - b.question_order);
+        sortedQuestions = questionsData.sort((a, b) => a.question_order - b.question_order);
         setQuestions(sortedQuestions);
       } catch (error: any) {
         if (error.response?.status === 403) {
@@ -108,13 +125,23 @@ const StudentHW: React.FC = () => {
           setResponses(initialResponses);
           setResponseTypes(initialTypes);
           
-          // If there are submissions, we're in review mode (read-only)
-          if (Object.keys(submissionsMap).length > 0) {
+          // Only set review mode if ALL questions have been submitted
+          // Check if every question has a submission with a response
+          const allQuestionsSubmitted = sortedQuestions.length > 0 && 
+            sortedQuestions.every(q => {
+              const submission = submissionsMap[q.id];
+              return submission && submission.submission_response && submission.submission_response.trim() !== '';
+            });
+          
+          if (allQuestionsSubmitted) {
             setIsReviewMode(true);
             // Disable all inputs since submissions are final
+          } else {
+            setIsReviewMode(false);
           }
         } catch (error) {
           console.log('No existing submissions found');
+          setIsReviewMode(false);
         }
       }
 
@@ -132,7 +159,7 @@ const StudentHW: React.FC = () => {
       });
     } catch (error) {
       console.error('Error loading module:', error);
-      alert('Error loading module. Please try again.');
+      // Silently handle errors - module loading usually works
     } finally {
       setLoading(false);
     }
@@ -255,7 +282,7 @@ const StudentHW: React.FC = () => {
         const response = responses[question.id];
         const responseType = question.question_type === 'multiple_choice' 
           ? 'multiple_choice' 
-          : (responseTypes[question.id] || question.question_type);
+          : (responseTypes[question.id] || 'written');
         
         // For multiple choice, require a selection
         if (question.question_type === 'multiple_choice' && !response) {
@@ -287,7 +314,7 @@ const StudentHW: React.FC = () => {
           const response = responses[question.id];
           const responseType = question.question_type === 'multiple_choice' 
             ? 'multiple_choice' 
-            : (responseTypes[question.id] || question.question_type);
+            : (responseTypes[question.id] || 'written');
           
           // Skip if no response (shouldn't happen after validation, but just in case)
           if (!response && responseType !== 'audio' && responseType !== 'multiple_choice') {
@@ -430,7 +457,12 @@ const StudentHW: React.FC = () => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No due date';
     try {
-      const date = new Date(dateString);
+      // Parse date as local date to avoid timezone issues
+      // Extract just the date part (YYYY-MM-DD) from ISO string
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      // Create date in local timezone (month is 0-indexed in JS Date)
+      const date = new Date(year, month - 1, day);
       return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     } catch {
       return dateString;
@@ -442,14 +474,15 @@ const StudentHW: React.FC = () => {
       <Header />
       
       <div className="hw-content">
+        <button 
+          className="back-button"
+          onClick={() => navigate('/')}
+        >
+          <span className="back-arrow">←</span>
+          Back to Home
+        </button>
+        
         <div className="hw-header">
-          <button 
-            className="back-button"
-            onClick={() => navigate('/')}
-          >
-            <span className="back-arrow">←</span>
-            Back to Home
-          </button>
           <h2 className="module-name-header">{module.module_name}</h2>
           <span className="due-date">Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
         </div>
@@ -514,7 +547,67 @@ const StudentHW: React.FC = () => {
                     )}
 
                     {/* Response Input */}
-                    {responseTypes[question.id] === 'written' ? (
+                    {/* For audio submissions in review mode, always show audio player, not textarea */}
+                    {(hasSubmission && submission.submission_type === 'audio') || 
+                     (!hasSubmission && responseTypes[question.id] === 'audio') ? (
+                      <div className="audio-recording">
+                        {!audioRecordings[question.id] && !hasSubmission ? (
+                          <>
+                            {!isRecording[question.id] ? (
+                              <button 
+                                className="record-button" 
+                                onClick={() => startRecording(question.id)}
+                                disabled={isReviewMode && hasSubmission}
+                              >
+                                <span className="icon-mic">🎤</span>
+                                Start Recording
+                              </button>
+                            ) : (
+                              <div className="recording-controls">
+                                <div className="recording-indicator">
+                                  <span className="recording-dot"></span>
+                                  <span className="recording-time">Recording: {formatTime(recordingTime[question.id] || 0)}</span>
+                                </div>
+                                <button 
+                                  className="stop-button" 
+                                  onClick={() => stopRecording(question.id)}
+                                >
+                                  Stop Recording
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="audio-playback">
+                            <p className="audio-status">
+                              {hasSubmission 
+                                ? `Audio submitted on ${new Date(submission.time_submitted).toLocaleDateString()}`
+                                : 'Audio recorded'}
+                            </p>
+                            <div className="audio-controls">
+                              {responses[question.id] && (
+                                <button 
+                                  className="play-button"
+                                  onClick={() => playAudio(responses[question.id])}
+                                >
+                                  ▶️ Play Recording
+                                </button>
+                              )}
+                              {!hasSubmission && (
+                                <>
+                                  <button 
+                                    className="re-record-button"
+                                    onClick={() => deleteRecording(question.id)}
+                                  >
+                                    🗑️ Delete & Re-record
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
                       <textarea
                         className="response-textarea"
                         placeholder="Type your response here ..."
@@ -523,65 +616,7 @@ const StudentHW: React.FC = () => {
                         rows={6}
                         readOnly={isReviewMode && hasSubmission}
                       />
-                ) : (
-                  <div className="audio-recording">
-                    {!audioRecordings[question.id] && !hasSubmission ? (
-                      <>
-                        {!isRecording[question.id] ? (
-                          <button 
-                            className="record-button" 
-                            onClick={() => startRecording(question.id)}
-                            disabled={isReviewMode && hasSubmission}
-                          >
-                            <span className="icon-mic">🎤</span>
-                            Start Recording
-                          </button>
-                        ) : (
-                          <div className="recording-controls">
-                            <div className="recording-indicator">
-                              <span className="recording-dot"></span>
-                              <span className="recording-time">Recording: {formatTime(recordingTime[question.id] || 0)}</span>
-                            </div>
-                            <button 
-                              className="stop-button" 
-                              onClick={() => stopRecording(question.id)}
-                            >
-                              Stop Recording
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="audio-playback">
-                        <p className="audio-status">
-                          {hasSubmission 
-                            ? `Audio submitted on ${new Date(submission.time_submitted).toLocaleDateString()}`
-                            : 'Audio recorded'}
-                        </p>
-                        <div className="audio-controls">
-                          {responses[question.id] && (
-                            <button 
-                              className="play-button"
-                              onClick={() => playAudio(responses[question.id])}
-                            >
-                              ▶️ Play Recording
-                            </button>
-                          )}
-                          {!hasSubmission && (
-                            <>
-                              <button 
-                                className="re-record-button"
-                                onClick={() => deleteRecording(question.id)}
-                              >
-                                🗑️ Delete & Re-record
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
                     )}
-                  </div>
-                )}
                   </>
                 )}
 
@@ -595,7 +630,15 @@ const StudentHW: React.FC = () => {
                 {/* Show grade if available */}
                 {submission?.grade && (
                   <div className="submission-grade">
-                    <strong>Grade:</strong> {submission.grade.score} / {submission.grade.total}
+                    <div className="grade-score">
+                      <strong>Grade:</strong> {submission.grade.score != null ? parseFloat(Number(submission.grade.score).toFixed(2)) : 0} / {submission.grade.total != null ? parseFloat(Number(submission.grade.total).toFixed(2)) : 0}
+                    </div>
+                    {submission.grade.teacher_comment && (
+                      <div className="teacher-comment">
+                        <strong>Teacher Feedback:</strong>
+                        <p className="comment-text">{submission.grade.teacher_comment}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

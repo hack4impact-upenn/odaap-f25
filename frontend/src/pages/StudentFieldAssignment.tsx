@@ -82,10 +82,12 @@ const StudentFieldAssignment: React.FC = () => {
       <Header />
       
       <div className="field-content">
+        <button onClick={() => navigate('/')} className="back-button">
+          <span className="back-arrow">←</span>
+          Back to Home
+        </button>
+        
         <div className="field-header">
-          <button onClick={() => navigate('/')} className="back-button">
-            ← Back to Home
-          </button>
           <span className="due-date">Due: {new Date().toLocaleDateString()}</span>
         </div>
 

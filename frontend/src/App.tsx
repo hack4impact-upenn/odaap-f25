@@ -1,15 +1,19 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CourseProvider } from './contexts/CourseContext';
 import Login from './pages/Login';
 import StudentMain from './pages/StudentMain';
 import StudentHW from './pages/StudentHW';
+import StudentModuleVideo from './pages/StudentModuleVideo';
 import StudentFieldAssignment from './pages/StudentFieldAssignment';
+import StudentResources from './pages/StudentResources';
 import TeacherMain from './pages/TeacherMain';
 import TeacherModules from './pages/TeacherModules';
 import TeacherEditModule from './pages/TeacherEditModule';
 import TeacherAnnouncements from './pages/TeacherAnnouncements';
 import TeacherSettings from './pages/TeacherSettings';
+import TeacherGrading from './pages/TeacherGrading';
 import './App.css';
 
 // Protected Route component
@@ -44,8 +48,9 @@ const RoleBasedRoute: React.FC<{
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
+      <CourseProvider>
+        <Router>
+          <Routes>
           <Route path="/login" element={<Login />} />
           
           <Route
@@ -62,6 +67,14 @@ function App() {
 
           {/* Student Routes */}
           <Route
+            path="/student/module/:moduleId/video"
+            element={
+              <ProtectedRoute>
+                <StudentModuleVideo />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/student/hw/:moduleId"
             element={
               <ProtectedRoute>
@@ -74,6 +87,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <StudentFieldAssignment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/resources"
+            element={
+              <ProtectedRoute>
+                <StudentResources />
               </ProtectedRoute>
             }
           />
@@ -111,10 +132,19 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/teacher/grading"
+            element={
+              <ProtectedRoute>
+                <TeacherGrading />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Router>
+        </Router>
+      </CourseProvider>
     </AuthProvider>
   );
 }

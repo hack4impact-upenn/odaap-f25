@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, submissionAPI, moduleAPI } from '../services/api';
-import type { Course, Module, Submission } from '../types';
+import { courseAPI, submissionAPI, moduleAPI, announcementAPI } from '../services/api';
+import type { Course, Module, Submission, Announcement } from '../types';
 import './StudentMain.css';
 
 const formatDate = (dateString?: string) => {
@@ -24,6 +24,7 @@ const StudentMain: React.FC = () => {
   const [submissions, setSubmissions] = useState<Record<number, Submission[]>>({});
   const [moduleQuestions, setModuleQuestions] = useState<Record<number, number>>({}); // module_id -> question_count
   const [moduleAccessibility, setModuleAccessibility] = useState<Record<number, { is_accessible: boolean; is_completed: boolean }>>({});
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,9 +44,21 @@ const StudentMain: React.FC = () => {
       setCourses(enrolledCourses);
 
         if (enrolledCourses.length > 0) {
+        const currentCourse = enrolledCourses[0];
+        
         // Load modules for the first course (or you could show all)
-        const courseModules = await courseAPI.getModules(enrolledCourses[0].id);
-        setModules(courseModules.sort((a, b) => a.module_order - b.module_order));
+        const courseModules = await courseAPI.getModules(currentCourse.id);
+        const publishedModules = courseModules.filter(m => m.is_posted);
+        setModules(publishedModules.sort((a, b) => a.module_order - b.module_order));
+        
+        // Load announcements for the course
+        try {
+          const announcementsData = await announcementAPI.getAll(currentCourse.id);
+          setAnnouncements(announcementsData);
+        } catch (error) {
+          console.error('Error loading announcements:', error);
+          setAnnouncements([]);
+        }
 
         // Load submissions and question counts for all modules
         const submissionsMap: Record<number, Submission[]> = {};
@@ -149,7 +162,7 @@ const StudentMain: React.FC = () => {
         status: 'completed',
         label: 'Completed',
         icon: '✓',
-        grade: totalPossible > 0 ? `${totalScore}/${totalPossible}` : null
+        grade: totalPossible > 0 ? `${parseFloat(totalScore.toFixed(2))}/${parseFloat(totalPossible.toFixed(2))}` : null
       };
     }
     
@@ -158,8 +171,20 @@ const StudentMain: React.FC = () => {
 
   const handleModuleClick = (module: Module) => {
     const moduleStatus = getModuleStatus(module);
+    console.log('Module click:', { moduleId: module.id, moduleName: module.module_name, status: moduleStatus.status });
+    
     if (moduleStatus.status === 'active' || moduleStatus.status === 'completed') {
-      navigate(`/student/hw/${module.id}`);
+      // If module has a YouTube video link, go to video page first
+      if (module.youtube_link) {
+        console.log('Navigating to video page:', `/student/module/${module.id}/video`);
+        navigate(`/student/module/${module.id}/video`);
+      } else {
+        // Otherwise, go directly to homework/questions
+        console.log('Navigating to homework page:', `/student/hw/${module.id}`);
+        navigate(`/student/hw/${module.id}`);
+      }
+    } else {
+      console.log('Module is locked, cannot navigate');
     }
   };
 
@@ -199,15 +224,14 @@ const StudentMain: React.FC = () => {
       <Header />
       
       <div className="student-content">
-        <h2 className="term-title">Fall 25</h2>
+        <h2 className="term-title">{currentCourse?.course_name || 'Course'}</h2>
         
-        <div className="main-grid">
-          {/* Left Column */}
-          <div className="left-column">
-            {/* Announcements Card - TODO: Connect to backend */}
-            <div className="card announcements-card">
-              <h3 className="card-title">Announcements</h3>
-              <div className="announcements-list">
+        {/* Top Layer: Announcements (full width) */}
+        <div className="announcements-section">
+          <div className="card announcements-card">
+            <h3 className="card-title">Announcements</h3>
+            <div className="announcements-list">
+              {announcements.length === 0 ? (
                 <div className="announcement-item">
                   <div className="announcement-indicator"></div>
                   <div className="announcement-content">
@@ -215,66 +239,94 @@ const StudentMain: React.FC = () => {
                     <p className="announcement-description">Check back later for updates</p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                announcements.map((announcement) => (
+                  <div key={announcement.id} className="announcement-item">
+                    <div className="announcement-indicator"></div>
+                    <div className="announcement-content">
+                      <h4 className="announcement-title">{announcement.title}</h4>
+                      <p className="announcement-description">{announcement.content}</p>
+                      <div className="announcement-meta">
+                        <span className="announcement-teacher">By {announcement.created_by_name}</span>
+                        <span className="announcement-date">
+                          {formatDate(announcement.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Right Column */}
-          <div className="right-column">
-            {/* Weekly Zoom Meeting Link Card */}
-            {currentCourse && (
-              <div className="card zoom-card">
-                <h3 className="card-title">Weekly Zoom Meeting Link</h3>
-                <p className="zoom-schedule">Every Friday, Saturday (2:00 - 3:00 pm)</p>
-                {currentCourse.zoom_link ? (
-                  <button 
-                    className="zoom-button"
-                    onClick={() => {
-                      // Ensure the zoom link is a valid URL
-                      let zoomUrl = currentCourse.zoom_link;
-                      // If it doesn't start with http, add https://
-                      if (zoomUrl && !zoomUrl.startsWith('http://') && !zoomUrl.startsWith('https://')) {
-                        zoomUrl = 'https://' + zoomUrl;
-                      }
-                      if (zoomUrl) {
-                        window.open(zoomUrl, '_blank', 'noopener,noreferrer');
-                      }
-                    }}
-                  >
-                    Join Meeting
-                    <span className="icon-arrow">→</span>
-                  </button>
-                ) : (
-                  <p className="zoom-unavailable">Zoom link not set. Please contact your teacher.</p>
-                )}
-              </div>
-            )}
+        {/* Bottom Layer: Zoom and Assignments side by side */}
+        <div className="bottom-grid">
+          {/* Weekly Zoom Meeting Link Card */}
+          {currentCourse && (
+            <div className="card zoom-card">
+              <h3 className="card-title">Weekly Zoom Meeting Link</h3>
+              <p className="zoom-schedule">Every Friday, Saturday (2:00 - 3:00 pm)</p>
+              {currentCourse.zoom_link ? (
+                <button 
+                  className="zoom-button"
+                  onClick={() => {
+                    // Ensure the zoom link is a valid URL
+                    let zoomUrl = currentCourse.zoom_link;
+                    // If it doesn't start with http, add https://
+                    if (zoomUrl && !zoomUrl.startsWith('http://') && !zoomUrl.startsWith('https://')) {
+                      zoomUrl = 'https://' + zoomUrl;
+                    }
+                    if (zoomUrl) {
+                      window.open(zoomUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                >
+                  Join Meeting
+                  <span className="icon-arrow">→</span>
+                </button>
+              ) : (
+                <p className="zoom-unavailable">Zoom link not set. Please contact your teacher.</p>
+              )}
+            </div>
+          )}
 
-            {/* Upcoming Assignments Card */}
-            <div className="card assignments-card">
-              <h3 className="card-title">Upcoming Assignments</h3>
-              {upcomingCount > 0 ? (
-                <>
-                  <p className="assignment-count">{upcomingCount} assignment{upcomingCount !== 1 ? 's' : ''} to complete</p>
+          {/* Upcoming Assignments Card */}
+          <div className="card assignments-card">
+            <h3 className="card-title">Upcoming Assignments</h3>
+            {upcomingCount > 0 ? (
+              <>
+                <p className="assignment-count">{upcomingCount} assignment{upcomingCount !== 1 ? 's' : ''} to complete</p>
+                <div className="assignments-list">
                   {upcomingModules.slice(0, 3).map((module) => (
                     <div 
                       key={module.id}
                       className="assignment-item clickable"
-                      onClick={() => navigate(`/student/hw/${module.id}`)}
+                      onClick={() => {
+                        // If module has a YouTube video link, go to video page first
+                        if (module.youtube_link) {
+                          navigate(`/student/module/${module.id}/video`);
+                        } else {
+                          // Otherwise, go directly to homework/questions
+                          navigate(`/student/hw/${module.id}`);
+                        }
+                      }}
                     >
                       <h4 className="assignment-name">{module.module_name}</h4>
-                      <p className="assignment-description">{module.module_description || 'Description'}</p>
+                      {module.module_description && (
+                        <p className="assignment-description">{module.module_description}</p>
+                      )}
                       <div className="assignment-due">
                         <span className="icon-clock">🕐</span>
                         <span>Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
                       </div>
                     </div>
                   ))}
-                </>
-              ) : (
-                <p className="assignment-count">No upcoming assignments</p>
-              )}
-            </div>
+                </div>
+              </>
+            ) : (
+              <p className="assignment-count">No upcoming assignments</p>
+            )}
           </div>
         </div>
 
@@ -304,7 +356,9 @@ const StudentMain: React.FC = () => {
                     </div>
                     <div className="module-info">
                       <h3 className="module-name">{module.module_name}</h3>
-                      <p className="module-description">{module.module_description || 'Description'}</p>
+                      {module.module_description && (
+                        <p className="module-description">{module.module_description}</p>
+                      )}
                       <div className="module-due">
                         <span className="icon-clock">🕐</span>
                         <span>Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
@@ -366,6 +420,78 @@ const StudentMain: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Resources Link */}
+        <div className="resources-nav-section">
+          <div
+            className="card resources-nav-card"
+            onClick={() => navigate('/student/resources')}
+          >
+            <span className="resources-nav-icon">📚</span>
+            <div>
+              <h3 className="card-title">Resources</h3>
+              <p className="resources-nav-description">View course materials, links, and helpful resources</p>
+            </div>
+            <span className="resources-nav-arrow">→</span>
+          </div>
+        </div>
+
+        {/* CEU Links Section */}
+        {currentCourse && (
+          (currentCourse.ceu_credit_application_link || 
+           currentCourse.ceu_act48_application_link || 
+           currentCourse.ceu_program_evaluation_link) && (
+            <div className="ceu-section">
+              <div className="card ceu-consolidated-card">
+                <h2 className="section-title">Continuing Education Credits</h2>
+                <div className="ceu-links-list">
+                  {currentCourse.ceu_credit_application_link && (
+                    <div className="ceu-link-item">
+                      <h4 className="ceu-link-title">Continuing Education Credit Application</h4>
+                      <a
+                        href={currentCourse.ceu_credit_application_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ceu-link-button"
+                      >
+                        Open Link
+                        <span className="icon-link">🔗</span>
+                      </a>
+                    </div>
+                  )}
+                  {currentCourse.ceu_act48_application_link && (
+                    <div className="ceu-link-item">
+                      <h4 className="ceu-link-title">ACT 48 Application</h4>
+                      <a
+                        href={currentCourse.ceu_act48_application_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ceu-link-button"
+                      >
+                        Open Link
+                        <span className="icon-link">🔗</span>
+                      </a>
+                    </div>
+                  )}
+                  {currentCourse.ceu_program_evaluation_link && (
+                    <div className="ceu-link-item">
+                      <h4 className="ceu-link-title">Program Evaluation</h4>
+                      <a
+                        href={currentCourse.ceu_program_evaluation_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ceu-link-button"
+                      >
+                        Open Link
+                        <span className="icon-link">🔗</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,13 @@
   padding: 24px;
 }
 
+.teacher-course-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #000;
+  margin: 0 0 16px 0;
+}
+
 .teacher-nav {
   display: flex;
   gap: 8px;
@@ -79,6 +86,8 @@
   border-radius: 12px;
   padding: 24px;
   border: 1px solid #e0e0e0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .module-header {
@@ -86,10 +95,33 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+  width: 100%;
 }
 
 .module-info {
   flex: 1;
+  min-width: 0; /* Prevents flex item from overflowing */
+}
+
+.module-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.module-order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  background: #9c27b0;
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .module-title {
@@ -107,8 +139,9 @@
 
 .module-meta {
   display: flex;
-  gap: 16px;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
   font-size: 14px;
   color: #666;
 }
@@ -144,8 +177,20 @@
 
 .module-actions {
   display: flex;
+  flex-direction: row;
   gap: 12px;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.btn-edit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #ccc;
+}
+
+.btn-edit:disabled:hover {
+  background: #ccc;
 }
 
 .btn-edit {
@@ -161,6 +206,16 @@
 
 .btn-edit:hover {
   background: #f5f5f5;
+}
+
+.btn-post:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #ccc;
+}
+
+.btn-post:disabled:hover {
+  background: #ccc;
 }
 
 .btn-post {
@@ -195,6 +250,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
 
 .question-item {
@@ -225,4 +281,114 @@
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+}
+
+.no-course-message,
+.no-modules-message {
+  padding: 48px;
+  text-align: center;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.no-course-message p,
+.no-modules-message p {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+}
+
+/* Post Confirmation Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.post-confirm-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.post-confirm-modal h2 {
+  margin: 0 0 24px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.post-confirm-message {
+  margin-bottom: 24px;
+}
+
+.post-confirm-message .warning-text {
+  font-size: 16px;
+  color: #d32f2f;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.post-confirm-message .confirm-question {
+  font-size: 16px;
+  color: #333;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.post-confirm-message strong {
+  font-weight: 600;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.modal-actions .btn-cancel {
+  padding: 10px 20px;
+  background: #f5f5f5;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.modal-actions .btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+.modal-actions .btn-confirm {
+  padding: 10px 20px;
+  background: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.modal-actions .btn-confirm:hover {
+  background: #ffb300;
 }

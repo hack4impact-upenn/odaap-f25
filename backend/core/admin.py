@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    User, Course, Module, Question, Submission,
+    User, Course, Module, Question, Submission, Announcement,
     CourseToStudents, CourseToTeachers, CourseToModules,
     ModuleToQuestions, QuestionToCorrectAnswers,
     UserModuleGrade, UserCourseGrade, UserQuestionGrade
@@ -71,3 +71,11 @@ class UserCourseGradeAdmin(admin.ModelAdmin):
 @admin.register(UserQuestionGrade)
 class UserQuestionGradeAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'question', 'score', 'total', 'is_overdue']
+
+@admin.register(Announcement)
+class AnnouncementAdmin(admin.ModelAdmin):
+    list_display = ['id', 'title', 'course', 'created_by', 'created_at', 'is_posted']
+    list_filter = ['is_posted', 'course', 'created_at']
+    search_fields = ['title', 'content']
+    ordering = ['-created_at']
+    readonly_fields = ['created_at']

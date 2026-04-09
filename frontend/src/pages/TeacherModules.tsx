@@ -2,46 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, moduleAPI, questionAPI } from '../services/api';
+import { useCourse } from '../contexts/CourseContext';
+import { moduleAPI, questionAPI } from '../services/api';
 import type { Module, Question } from '../types';
 import './TeacherModules.css';
 
 const TeacherModules: React.FC = () => {
+  const { selectedCourse, loading: courseLoading } = useCourse();
   const [modules, setModules] = useState<Module[]>([]);
   const [moduleQuestions, setModuleQuestions] = useState<Record<number, Question[]>>({});
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
-  const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPostConfirm, setShowPostConfirm] = useState(false);
+  const [moduleToPost, setModuleToPost] = useState<Module | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
     if (selectedCourse) {
-      loadModules(selectedCourse);
-    }
-  }, [selectedCourse]);
-
-  const loadData = async () => {
-    try {
-      if (user) {
-        const enrolledCourses = await courseAPI.getEnrolledCourses(user.id);
-        if (enrolledCourses.length > 0) {
-          setSelectedCourse(enrolledCourses[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
+      loadModules(selectedCourse.id);
+    } else if (!courseLoading) {
       setLoading(false);
     }
-  };
+  }, [selectedCourse, courseLoading]);
 
   const loadModules = async (courseId: number) => {
     try {
+      setLoading(true);
       const courseModules = await moduleAPI.getAll(courseId);
       const sortedModules = courseModules.sort((a, b) => a.module_order - b.module_order);
       setModules(sortedModules);
@@ -59,6 +46,8 @@ const TeacherModules: React.FC = () => {
       setModuleQuestions(questionsMap);
     } catch (error) {
       console.error('Error loading modules:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,23 +63,57 @@ const TeacherModules: React.FC = () => {
     });
   };
 
-  const handlePostModule = async (moduleId: number) => {
+  const handlePostClick = (moduleId: number) => {
+    const module = modules.find(m => m.id === moduleId);
+    if (!module) return;
+    
+    // Find the index of this module
+    const moduleIndex = modules.findIndex(m => m.id === moduleId);
+    
+    // Check if all previous modules are posted
+    const previousModules = modules.slice(0, moduleIndex);
+    const allPreviousPosted = previousModules.every(m => m.is_posted);
+    
+    if (!allPreviousPosted && moduleIndex > 0) {
+      alert('You must post all previous modules before posting this one. Students complete modules sequentially.');
+      return;
+    }
+    
+    // Show confirmation modal
+    setModuleToPost(module);
+    setShowPostConfirm(true);
+  };
+
+  const handlePostConfirm = async () => {
+    if (!moduleToPost) return;
+    
     try {
-      const module = modules.find(m => m.id === moduleId);
-      if (module) {
-        await moduleAPI.update(moduleId, { ...module, is_posted: true });
-        await loadModules(selectedCourse!);
+      await moduleAPI.update(moduleToPost.id, { ...moduleToPost, is_posted: true });
+      if (selectedCourse) {
+        await loadModules(selectedCourse.id);
       }
+      setShowPostConfirm(false);
+      setModuleToPost(null);
     } catch (error) {
       console.error('Error posting module:', error);
       alert('Error posting module');
     }
   };
 
+  const handlePostCancel = () => {
+    setShowPostConfirm(false);
+    setModuleToPost(null);
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'TBD';
     try {
-      const date = new Date(dateString);
+      // Parse date as local date to avoid timezone issues
+      // Extract just the date part (YYYY-MM-DD) from ISO string
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      // Create date in local timezone (month is 0-indexed in JS Date)
+      const date = new Date(year, month - 1, day);
       return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     } catch {
       return dateString;
@@ -127,6 +150,9 @@ const TeacherModules: React.FC = () => {
       <Header />
       
       <div className="modules-content">
+        {selectedCourse && (
+          <h2 className="teacher-course-title">{selectedCourse.course_name}</h2>
+        )}
         <nav className="teacher-nav">
           <button onClick={() => navigate('/')}>
             📊 Overview
@@ -137,7 +163,7 @@ const TeacherModules: React.FC = () => {
           <button onClick={() => navigate('/teacher/announcements')}>
             📢 Announcements
           </button>
-          <button onClick={() => navigate('/')}>
+          <button onClick={() => navigate('/teacher/grading')}>
             ✓ Grading
           </button>
           <button onClick={() => navigate('/teacher/settings')}>
@@ -156,12 +182,18 @@ const TeacherModules: React.FC = () => {
                   return;
                 }
                 
-                // Create a new module
+                // Calculate the next module order (max existing order + 1)
+                const maxOrder = modules.length > 0 
+                  ? Math.max(...modules.map(m => m.module_order))
+                  : 0;
+                const nextOrder = maxOrder + 1;
+                
+                // Create a new module with automatically assigned order
                 const newModule = await moduleAPI.create({
-                  course: selectedCourse,
-                  module_name: `Module ${modules.length + 1}`,
+                  course: selectedCourse.id,
+                  module_name: `Module ${nextOrder}`,
                   module_description: 'Description of the module',
-                  module_order: modules.length + 1,
+                  module_order: nextOrder,
                   score_total: 100,
                   is_posted: false,
                 } as any);
@@ -178,17 +210,35 @@ const TeacherModules: React.FC = () => {
           </button>
         </div>
 
+        {!selectedCourse && !courseLoading && (
+          <div className="no-course-message">
+            <p>Please select a course in Settings to view modules.</p>
+          </div>
+        )}
+
+        {selectedCourse && modules.length === 0 && !loading && (
+          <div className="no-modules-message">
+            <p>No modules yet. Create your first module to get started!</p>
+          </div>
+        )}
+
         {selectedCourse && (
           <div className="modules-list">
-            {modules.map((module) => {
+            {modules.map((module, index) => {
               const questions = moduleQuestions[module.id] || [];
               const isExpanded = expandedModules.has(module.id);
+              
+              // Check if this module can be posted (all previous modules must be posted)
+              const canPost = index === 0 || modules.slice(0, index).every(m => m.is_posted);
               
               return (
                 <div key={module.id} className="module-card">
                   <div className="module-header">
                     <div className="module-info">
-                      <h3 className="module-title">{module.module_name}</h3>
+                      <div className="module-title-row">
+                        <span className="module-order-badge">#{index + 1}</span>
+                        <h3 className="module-title">{module.module_name}</h3>
+                      </div>
                       <p className="module-description">
                         {module.module_description || 'Description of the module'}
                       </p>
@@ -209,6 +259,8 @@ const TeacherModules: React.FC = () => {
                       <button 
                         className="btn-edit"
                         onClick={() => navigate(`/teacher/modules/${module.id}/edit`)}
+                        disabled={module.is_posted}
+                        title={module.is_posted ? "Cannot edit posted modules" : ""}
                       >
                         ✏️ Edit
                       </button>
@@ -217,7 +269,9 @@ const TeacherModules: React.FC = () => {
                       ) : (
                         <button 
                           className="btn-post"
-                          onClick={() => handlePostModule(module.id)}
+                          onClick={() => handlePostClick(module.id)}
+                          disabled={!canPost}
+                          title={!canPost ? "You must post previous modules first" : ""}
                         >
                           Post to Students
                         </button>
@@ -242,6 +296,39 @@ const TeacherModules: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Post Confirmation Modal */}
+      {showPostConfirm && moduleToPost && (
+        <div className="modal-overlay" onClick={handlePostCancel}>
+          <div className="modal-content post-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Reminder</h2>
+            <div className="post-confirm-message">
+              <p className="warning-text">
+                Once you post this module, you will not be able to edit it.
+              </p>
+              <p className="confirm-question">
+                Are you sure you want to post <strong>"{moduleToPost.module_name}"</strong> to students?
+              </p>
+            </div>
+            <div className="modal-actions">
+              <button 
+                type="button" 
+                onClick={handlePostCancel}
+                className="btn-cancel"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handlePostConfirm}
+                className="btn-confirm"
+              >
+                Post to Students
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

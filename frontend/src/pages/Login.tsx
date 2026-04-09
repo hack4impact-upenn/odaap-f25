@@ -13,6 +13,7 @@ const Login: React.FC = () => {
       first_name: '',
       last_name: '',
       isStudent: true,
+      enrollment_code: '',
     }),
   });
   const [error, setError] = useState<string>('');
@@ -31,11 +32,17 @@ const Login: React.FC = () => {
       }
       navigate('/');
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.detail || 
-                          err.message || 
-                          'An error occurred. Please try again.';
-      setError(errorMessage);
+      // Handle login errors specifically
+      if (isLogin && err.response?.status === 400) {
+        setError('password and username incorrect');
+      } else {
+        const errorMessage = err.response?.data?.error || 
+                            err.response?.data?.detail || 
+                            err.response?.data?.non_field_errors?.[0] ||
+                            err.message || 
+                            'An error occurred. Please try again.';
+        setError(errorMessage);
+      }
       console.error('Auth error:', err.response?.data || err);
     }
   };
@@ -48,25 +55,46 @@ const Login: React.FC = () => {
     }));
   };
 
+  // Reset form when switching between login/register
+  const handleTabSwitch = (loginMode: boolean) => {
+    setIsLogin(loginMode);
+    if (loginMode) {
+      setFormData({
+        email: '',
+        password: '',
+      });
+    } else {
+      setFormData({
+        email: '',
+        password: '',
+        first_name: '',
+        last_name: '',
+        isStudent: true,
+        enrollment_code: '',
+      } as RegisterData);
+    }
+    setError('');
+  };
+
   return (
     <div className="login-container">
       <div className="login-header">
         <div className="logo">
           <img src="/logo.png" alt="ODAAP" className="logo-image" />
-          <span className="logo-text">ODAAP Classroom</span>
+          <span className="logo-text" style={{ fontSize: '35px', fontWeight: '600', color: '#4a148c' }}>ODAAP Classroom</span>
         </div>
       </div>
 
       <div className="login-tabs">
         <button
           className={`tab ${isLogin ? 'active' : ''}`}
-          onClick={() => setIsLogin(true)}
+          onClick={() => handleTabSwitch(true)}
         >
           Login
         </button>
         <button
           className={`tab ${!isLogin ? 'active' : ''}`}
-          onClick={() => setIsLogin(false)}
+          onClick={() => handleTabSwitch(false)}
         >
           Register
         </button>
@@ -74,7 +102,7 @@ const Login: React.FC = () => {
 
       <div className="login-card">
         <form onSubmit={handleSubmit} className="login-form">
-          <h2>{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+          <h2>{isLogin ? 'Welcome Back' : 'Create Student Account'}</h2>
           <p className="subtitle">{isLogin ? 'Login to your account.' : 'Sign up to get started.'}</p>
 
           {error && <div className="error-message">{error}</div>}
@@ -131,42 +159,29 @@ const Login: React.FC = () => {
           </div>
 
           {!isLogin && (
-            <div className="radio-group">
-              <label className="radio-label">I am a:</label>
-              <ul className="radio-list">
-                <li>
-                  <label>
-                    <input
-                      type="radio"
-                      name="isStudent"
-                      value="true"
-                      checked={(formData as RegisterData).isStudent === true}
-                      onChange={() => setFormData(prev => ({ ...prev, isStudent: true }))}
-                    />
-                    <span className="radio-custom"></span>
-                    Student
-                  </label>
-                </li>
-                <li>
-                  <label>
-                    <input
-                      type="radio"
-                      name="isStudent"
-                      value="false"
-                      checked={(formData as RegisterData).isStudent === false}
-                      onChange={() => setFormData(prev => ({ ...prev, isStudent: false }))}
-                    />
-                    <span className="radio-custom"></span>
-                    Teacher
-                  </label>
-                </li>
-              </ul>
+            <div className="form-field">
+              <label htmlFor="enrollment_code">Enrollment Code *</label>
+              <input
+                type="text"
+                id="enrollment_code"
+                name="enrollment_code"
+                value={(formData as RegisterData).enrollment_code || ''}
+                onChange={handleChange}
+                placeholder="Enter course enrollment code"
+                required
+              />
             </div>
           )}
 
           <button type="submit" className="submit-button">
             {isLogin ? 'Login' : 'Register'}
           </button>
+
+          {isLogin && (
+            <p className="forgot-password-text">
+              Forgot your password? Contact your teacher to reset it.
+            </p>
+          )}
         </form>
       </div>
     </div>

@@ -23,12 +23,32 @@ class Course(models.Model):
     course_name = models.TextField()
     course_description = models.TextField(null=True, blank=True)
     score_total = models.IntegerField(default=0)
+    student_enrollment_code = models.CharField(max_length=20, unique=True, null=True, blank=True)  # Unique enrollment code for students
+    ceu_credit_application_link = models.TextField(null=True, blank=True)  # Continuing Education Credit Application
+    ceu_act48_application_link = models.TextField(null=True, blank=True)  # ACT 48 Application
+    ceu_program_evaluation_link = models.TextField(null=True, blank=True)  # Program Evaluation
 
     class Meta:
         verbose_name_plural = "Courses"
 
     def __str__(self):
         return self.course_name
+
+
+class Announcement(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='announcements')
+    title = models.TextField()
+    content = models.TextField()
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='announcements_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_posted = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "Announcements"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
         
 
 class Module(models.Model):
@@ -100,9 +120,10 @@ class UserCourseGrade(models.Model):
 class UserQuestionGrade(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    score = models.IntegerField(null=True, blank=True)
-    total = models.IntegerField(null=True, blank=True)
+    score = models.FloatField(null=True, blank=True)  # Changed to FloatField to support decimals
+    total = models.FloatField(null=True, blank=True)  # Changed to FloatField to support decimals
     is_overdue = models.BooleanField(default=False)
+    teacher_comment = models.TextField(null=True, blank=True)  # Teacher's comment on the submission
 
     def __str__(self):
         return self.question.question_text
@@ -156,3 +177,19 @@ class QuestionToCorrectAnswers(models.Model):
 
     def __str__(self):
         return self.question.question_text
+
+
+class Resource(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='resources')
+    title = models.TextField()
+    description = models.TextField(null=True, blank=True)
+    links = models.JSONField(default=list, blank=True)
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Resources"
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return self.title

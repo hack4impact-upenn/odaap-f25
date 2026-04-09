@@ -1,0 +1,155 @@
+.student-module-video {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.video-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.back-button {
+  background: transparent;
+  border: none;
+  color: #9c27b0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.3s;
+  margin-bottom: 16px;
+}
+
+.back-button:hover {
+  opacity: 0.8;
+}
+
+.back-arrow {
+  font-size: 18px;
+  line-height: 1;
+  color: #9c27b0;
+}
+
+.video-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.video-header h1 {
+  font-size: 32px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 12px 0;
+}
+
+.module-description {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.video-container {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #000;
+}
+
+.video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.no-video-message {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.no-video-message h2 {
+  font-size: 24px;
+  color: #333;
+  margin: 0 0 16px 0;
+}
+
+.no-video-message p {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 32px 0;
+}
+
+.video-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+}
+
+.btn-next {
+  padding: 14px 32px;
+  background: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-next:hover {
+  background: #7b1fa2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+}
+
+.btn-next:active {
+  transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .video-content {
+    padding: 16px;
+  }
+
+  .back-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .video-header h1 {
+    font-size: 24px;
+  }
+
+  .video-container {
+    padding: 16px;
+  }
+
+  .btn-next {
+    width: 100%;
+    justify-content: center;
+  }
+}
