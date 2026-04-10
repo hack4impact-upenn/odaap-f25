@@ -14,6 +14,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -22,7 +24,7 @@ from core.serializers import CustomTokenObtainPairSerializer
 
 # views
 from core.views import (
-    CourseViewSet, ModuleViewSet, QuestionViewSet, SubmissionViewSet, 
+    CourseViewSet, ModuleViewSet, QuestionViewSet, SubmissionViewSet,
     AnnouncementViewSet, ResourceViewSet, register, invite_teacher, change_password, reset_user_password
 )
 
@@ -50,3 +52,6 @@ urlpatterns = [
     # Include router URLs (provides all ViewSet endpoints)
     path('api/', include(router.urls)),
 ]
+
+if settings.DEBUG and getattr(settings, "MEDIA_ROOT", None):
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

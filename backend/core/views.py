@@ -1,9 +1,16 @@
 import random
 import string
+import uuid
+import boto3
+from botocore.exceptions import ClientError
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.conf import settings as django_settings
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.db.models import Q
@@ -18,7 +25,7 @@ def generate_enrollment_code(length=5):
         if not Course.objects.filter(student_enrollment_code=code).exists():
             return code
 from .models import (
-    Course, CourseToStudents, CourseToTeachers, Module, Question, 
+    Course, CourseToStudents, CourseToTeachers, Module, Question, QuestionType,
     Submission, UserQuestionGrade, QuestionToCorrectAnswers, User, Announcement, Resource
 )
 from .serializers import (
@@ -33,6 +40,7 @@ User = get_user_model()
 # ============================================================================
 
 @api_view(['POST'])
+@authentication_classes([])  # Disable authentication for registration
 @permission_classes([AllowAny])
 def register(request):
     """
@@ -208,8 +216,8 @@ def change_password(request):
 def reset_user_password(request):
     """
     POST /api/reset-user-password/
-    Teacher resets a student's or another teacher's password.
-    Only works for users who share a course with the requesting teacher.
+    Teacher resets a student's or another teacher's password, or their own.
+    For others, the target must share a course with the requesting teacher.
     """
     if request.user.isStudent:
         return Response(
@@ -234,17 +242,19 @@ def reset_user_password(request):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    teacher_courses = Course.objects.filter(coursetoteachers__user=request.user)
-    shares_course = (
-        CourseToStudents.objects.filter(course__in=teacher_courses, user=target_user).exists() or
-        CourseToTeachers.objects.filter(course__in=teacher_courses, user=target_user).exists()
-    )
-
-    if not shares_course:
-        return Response(
-            {'error': 'You can only reset passwords for users in your courses'},
-            status=status.HTTP_403_FORBIDDEN
+    # Teachers may always set a new password for themselves (no shared-course check).
+    if target_user.id != request.user.id:
+        teacher_courses = Course.objects.filter(coursetoteachers__user=request.user)
+        shares_course = (
+            CourseToStudents.objects.filter(course__in=teacher_courses, user=target_user).exists() or
+            CourseToTeachers.objects.filter(course__in=teacher_courses, user=target_user).exists()
         )
+
+        if not shares_course:
+            return Response(
+                {'error': 'You can only reset passwords for users in your courses'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
     if len(new_password) < 6:
         return Response(
@@ -316,14 +326,12 @@ class CourseViewSet(viewsets.ModelViewSet):
     
     def _copy_course_content(self, source_course, target_course):
         """
-        Copy all modules and questions from source_course to target_course.
+        Copy all modules, questions, and resources from source_course to target_course.
         Removes due dates and sets is_posted to False.
         """
-        # Get all modules from source course, ordered by module_order
         source_modules = Module.objects.filter(course=source_course).order_by('module_order')
         
         for source_module in source_modules:
-            # Create new module without due_date and with is_posted=False
             new_module = Module.objects.create(
                 course=target_course,
                 module_name=source_module.module_name,
@@ -331,31 +339,38 @@ class CourseViewSet(viewsets.ModelViewSet):
                 youtube_link=source_module.youtube_link,
                 module_order=source_module.module_order,
                 score_total=source_module.score_total,
-                is_posted=False,  # Always set to False
-                due_date=None  # Remove due date
+                is_posted=False,
+                due_date=None
             )
             
-            # Get all questions from source module, ordered by question_order
             source_questions = Question.objects.filter(module=source_module).order_by('question_order')
             
             for source_question in source_questions:
-                # Create new question
                 new_question = Question.objects.create(
                     module=new_module,
                     question_type=source_question.question_type,
                     question_text=source_question.question_text,
-                    mcq_options=source_question.mcq_options,  # JSON field, copied as-is
+                    mcq_options=source_question.mcq_options,
                     question_order=source_question.question_order,
                     score_total=source_question.score_total
                 )
                 
-                # Copy correct answers if they exist
                 source_correct_answers = QuestionToCorrectAnswers.objects.filter(question=source_question)
                 for source_answer in source_correct_answers:
                     QuestionToCorrectAnswers.objects.create(
                         question=new_question,
                         correct_answer=source_answer.correct_answer
                     )
+
+        source_resources = Resource.objects.filter(course=source_course).order_by('order')
+        for source_resource in source_resources:
+            Resource.objects.create(
+                course=target_course,
+                title=source_resource.title,
+                description=source_resource.description,
+                links=source_resource.links,
+                order=source_resource.order
+            )
     
     @action(detail=False, methods=['get'], url_path='userid=(?P<user_id>[^/.]+)')
     def get_all_enrolled_courses(self, request, user_id=None):
@@ -511,18 +526,14 @@ class CourseViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            # Get zoom_link from request data
-            # Handle both 'zoom_link' and 'zoomLink' (camelCase)
             zoom_link = request.data.get('zoom_link') or request.data.get('zoomLink')
             
-            # Allow empty string but not None
             if zoom_link is None:
                 return Response(
                     {"error": "zoom_link is required in request body"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Update the zoom link
             try:
                 course.zoom_link = zoom_link
                 course.save(update_fields=['zoom_link'])
@@ -786,6 +797,35 @@ class ModuleViewSet(viewsets.ModelViewSet):
         questions = Question.objects.filter(module=module).order_by('question_order')
         serializer = QuestionSerializer(questions, many=True)
         return Response(serializer.data)
+
+    def _multiple_choice_post_validation_errors(self, module):
+        """Return human-readable errors if any MC question cannot be graded when posted."""
+        errors = []
+        for q in Question.objects.filter(module=module).order_by('question_order'):
+            if q.question_type != QuestionType.MULTIPLE_CHOICE:
+                continue
+            opts = [str(o).strip() for o in (q.mcq_options or []) if str(o).strip()]
+            if not opts:
+                errors.append(
+                    f"Multiple choice question #{q.question_order} has no answer choices."
+                )
+                continue
+            correct = list(
+                QuestionToCorrectAnswers.objects.filter(question=q).values_list(
+                    "correct_answer", flat=True
+                )
+            )
+            correct_clean = [str(c).strip() for c in correct if str(c).strip()]
+            if not correct_clean:
+                errors.append(
+                    f"Multiple choice question #{q.question_order} needs a correct answer selected."
+                )
+                continue
+            if not any(ca in opts for ca in correct_clean):
+                errors.append(
+                    f"Multiple choice question #{q.question_order}: correct answer must match one of the options."
+                )
+        return errors
     
     def _is_module_accessible(self, module, user):
         """
@@ -940,7 +980,17 @@ class ModuleViewSet(viewsets.ModelViewSet):
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        
+
+            mcq_errors = self._multiple_choice_post_validation_errors(module)
+            if mcq_errors:
+                return Response(
+                    {
+                        "error": "Cannot post until every multiple choice question has a correct answer selected.",
+                        "detail": mcq_errors,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # Remove module_order from request - it's automatically managed and shouldn't be changed
         request_data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         request_data.pop('module_order', None)
@@ -951,6 +1001,28 @@ class ModuleViewSet(viewsets.ModelViewSet):
         serializer.save()
         
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.isStudent:
+            return Response(
+                {"error": "Only teachers can delete modules"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        module = self.get_object()
+        if not CourseToTeachers.objects.filter(course=module.course, user=request.user).exists():
+            return Response(
+                {"error": "You don't have permission to delete this module"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if module.is_posted:
+            return Response(
+                {
+                    "error": "Posted modules cannot be deleted.",
+                    "detail": "This keeps student submissions and grades intact.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 # ============================================================================
 # QUESTION VIEWSET
@@ -1127,6 +1199,42 @@ class QuestionViewSet(viewsets.ModelViewSet):
 # SUBMISSION VIEWSET
 # ============================================================================
 
+def _autograde_multiple_choice_submission(submission):
+    """
+    For multiple-choice questions, score submission against QuestionToCorrectAnswers.
+    Full question score if the selected option text matches a correct answer; otherwise 0.
+    Does nothing if the question is not MCQ or has no correct answers on file.
+    """
+    question = submission.question
+    if question.question_type != 'multiple_choice':
+        return
+    correct_answers = list(
+        QuestionToCorrectAnswers.objects.filter(question=question).values_list('correct_answer', flat=True)
+    )
+    if not correct_answers:
+        return
+    response = (submission.submission_response or '').strip()
+    is_correct = any(response == (ca or '').strip() for ca in correct_answers)
+    total = 1.0
+    score = 1.0 if is_correct else 0.0
+
+    from django.utils import timezone as django_timezone
+    is_overdue = False
+    module = submission.module
+    if module and module.due_date:
+        is_overdue = submission.time_submitted > module.due_date
+
+    UserQuestionGrade.objects.update_or_create(
+        question=question,
+        user=submission.user,
+        defaults={
+            'score': score,
+            'total': total,
+            'is_overdue': is_overdue,
+        },
+    )
+
+
 class SubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = SubmissionSerializer
     permission_classes = [IsAuthenticated]
@@ -1134,24 +1242,34 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Get submissions for the current user or all student submissions if teacher"""
         user = self.request.user
-        
+        module_id_param = self.request.query_params.get('module_id', None)
+
         if user.isStudent:
             # Students only see their own submissions
             queryset = Submission.objects.filter(user=user)
+            if module_id_param:
+                try:
+                    mid = int(module_id_param)
+                    module = Module.objects.get(id=mid)
+                except (ValueError, TypeError, Module.DoesNotExist):
+                    queryset = queryset.none()
+                else:
+                    if CourseToStudents.objects.filter(course=module.course, user=user).exists():
+                        queryset = queryset.filter(module_id=mid)
+                    else:
+                        queryset = queryset.none()
         else:
             # Teachers see all submissions from students in courses they teach
             teacher_courses = Course.objects.filter(coursetoteachers__user=user)
             
             # If filtering by module_id, verify the teacher has access to that module's course
-            module_id = self.request.query_params.get('module_id', None)
-            if module_id:
+            if module_id_param:
                 try:
-                    from .models import Module
-                    module = Module.objects.get(id=module_id)
+                    module = Module.objects.get(id=module_id_param)
                     # Verify teacher has access to this module's course
                     if teacher_courses.filter(id=module.course.id).exists():
                         queryset = Submission.objects.filter(
-                            module_id=module_id,
+                            module_id=module_id_param,
                             user__isStudent=True
                         )
                     else:
@@ -1236,7 +1354,9 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(data=submission_data)
             serializer.is_valid(raise_exception=True)
             submission = serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            _autograde_multiple_choice_submission(submission)
+            out = self.get_serializer(submission)
+            return Response(out.data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response(
                 {"error": str(e), "details": serializer.errors if 'serializer' in locals() else None},
@@ -1264,9 +1384,9 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(submission, data=request_data, partial=partial)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        
-        return Response(serializer.data)
+        submission = serializer.save()
+        _autograde_multiple_choice_submission(submission)
+        return Response(self.get_serializer(submission).data)
 
     @action(detail=False, methods=['post'], url_path='questions/(?P<question_id>[^/.]+)/submit')
     def submit_to_question(self, request, question_id=None):
@@ -1304,7 +1424,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         """
         submission = self.get_object()
         score = request.data.get('score')
-        total = request.data.get('total', 1.0)  # Default to 1.0 for decimal support
+        total = 1.0  # All questions are worth 1 point
         is_overdue = request.data.get('is_overdue', False)
         teacher_comment = request.data.get('teacher_comment', '')
         
@@ -1314,13 +1434,11 @@ class SubmissionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Convert to float to support decimals
         try:
             score = float(score)
-            total = float(total) if total else 1.0
         except (ValueError, TypeError):
             return Response(
-                {"error": "Score and total must be valid numbers"},
+                {"error": "Score must be a valid number"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1406,6 +1524,9 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
 # RESOURCE VIEWSET
 # ============================================================================
 
+MAX_RESOURCE_PDF_BYTES = 15 * 1024 * 1024  # 15 MB
+
+
 class ResourceViewSet(viewsets.ModelViewSet):
     serializer_class = ResourceSerializer
     permission_classes = [IsAuthenticated]
@@ -1424,6 +1545,103 @@ class ResourceViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(course_id=course_id)
 
         return queryset.order_by('order', 'created_at')
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='upload-pdf',
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_pdf(self, request):
+        """Upload a PDF for a course resource (stored in default file storage, e.g. S3)."""
+        if request.user.isStudent:
+            return Response(
+                {"error": "Only teachers can upload resource files"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        course_id = request.data.get('course_id')
+        if not course_id:
+            return Response(
+                {"error": "course_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        course = get_object_or_404(Course, pk=course_id)
+        if not CourseToTeachers.objects.filter(course=course, user=request.user).exists():
+            return Response(
+                {"error": "You are not a teacher of this course"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response(
+                {"error": "No file provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if upload.size > MAX_RESOURCE_PDF_BYTES:
+            return Response(
+                {"error": "PDF must be 15 MB or smaller"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        head = upload.read(5)
+        upload.seek(0)
+        if not head.startswith(b'%PDF'):
+            return Response(
+                {"error": "Only PDF files are allowed"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        storage_name = f"resource_pdfs/{uuid.uuid4().hex}.pdf"
+        file_body = upload.read()
+        original_name = (upload.name or "document.pdf").replace('"', "").replace("\r", "").replace("\n", "")
+        if not original_name.lower().endswith(".pdf"):
+            original_name = f"{original_name}.pdf"
+        disp_name = original_name[:180]
+
+        use_s3 = bool(getattr(django_settings, "USE_S3_STORAGE", False))
+        bucket = getattr(django_settings, "AWS_STORAGE_BUCKET_NAME", None)
+        region = getattr(django_settings, "AWS_S3_REGION_NAME", "us-east-1")
+        key_id = getattr(django_settings, "AWS_ACCESS_KEY_ID", None)
+        secret = getattr(django_settings, "AWS_SECRET_ACCESS_KEY", None)
+
+        def absolute_file_url(url: str) -> str:
+            if not url or url.startswith("http://") or url.startswith("https://"):
+                return url
+            return request.build_absolute_uri(url)
+
+        # Upload with Content-Disposition: attachment so browsers download instead of inline-viewing
+        if use_s3:
+            try:
+                s3 = boto3.client(
+                    "s3",
+                    aws_access_key_id=key_id,
+                    aws_secret_access_key=secret,
+                    region_name=region,
+                )
+                s3.put_object(
+                    Bucket=bucket,
+                    Key=storage_name,
+                    Body=file_body,
+                    ContentType="application/pdf",
+                    ContentDisposition=f'attachment; filename="{disp_name}"',
+                )
+                file_url = absolute_file_url(default_storage.url(storage_name))
+            except ClientError as e:
+                err = (e.response or {}).get("Error", {}) or {}
+                msg = err.get("Message") or str(e)
+                return Response(
+                    {"error": f"Could not upload to storage ({msg}). Check AWS credentials and bucket."},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+        else:
+            path = default_storage.save(storage_name, ContentFile(file_body))
+            file_url = absolute_file_url(default_storage.url(path))
+
+        return Response(
+            {
+                "url": file_url,
+                "filename": upload.name or "document.pdf",
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     def create(self, request, *args, **kwargs):
         if request.user.isStudent:
