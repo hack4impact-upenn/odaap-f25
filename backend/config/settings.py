@@ -38,7 +38,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ENVIRONMENT = os.getenv("ENVIRONMENT")
 
 # allows all hosts in development, but only specific hosts in production
-if ENVIRONMENT.lower() == "development":
+if (ENVIRONMENT or "").lower() == "development":
     DEBUG = True
 else:
     DEBUG = False
