@@ -375,5 +375,17 @@ export const resourceAPI = {
   },
 };
 
+// Dashboard API — single call for all page data
+export const dashboardAPI = {
+  getStudentDashboard: async (courseId: number) => {
+    const response = await api.get(`/dashboard/${courseId}/`);
+    return response.data;
+  },
+  getTeacherDashboard: async (courseId: number) => {
+    const response = await api.get(`/teacher-dashboard/${courseId}/`);
+    return response.data;
+  },
+};
+
 export default api;
 

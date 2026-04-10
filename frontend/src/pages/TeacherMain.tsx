@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { useCourse } from '../contexts/CourseContext';
-import { courseAPI, moduleAPI, submissionAPI, questionAPI, authAPI } from '../services/api';
-import { moduleDisplayTitle, type Module, type Submission, type User } from '../types';
-import { equalModuleOverallPercent } from '../utils/grades';
+import { dashboardAPI, authAPI } from '../services/api';
+import { moduleDisplayTitle, type Module, type User } from '../types';
 import './TeacherMain.css';
 
 const TeacherMain: React.FC = () => {
@@ -34,108 +33,33 @@ const TeacherMain: React.FC = () => {
 
   const loadData = async () => {
     if (!selectedCourse) return;
-    
+
     try {
       setLoading(true);
-      const courseModules = await moduleAPI.getAll(selectedCourse.id);
-      setModules(courseModules.sort((a, b) => a.module_order - b.module_order));
-      
-      // Load students and teachers
-      const courseStudents = await courseAPI.getStudents(selectedCourse.id);
-      const courseTeachers = await courseAPI.getTeachers(selectedCourse.id);
-      setStudents(courseStudents);
-      setTeachers(courseTeachers);
-      
-      // Calculate module progress and student grades
-      await calculateModuleProgress(courseModules, courseStudents);
+      const dashboard = await dashboardAPI.getTeacherDashboard(selectedCourse.id);
+
+      const courseModules = dashboard.modules as Array<Module & { progress: number }>;
+      setModules(courseModules.sort((a: Module, b: Module) => a.module_order - b.module_order));
+
+      setStudents(dashboard.students);
+      setTeachers(dashboard.teachers);
+
+      const progressMap: Record<number, number> = {};
+      for (const m of courseModules) {
+        progressMap[m.id] = (m as any).progress ?? 0;
+      }
+      setModuleProgress(progressMap);
+
+      const gradesMap: Record<number, { grade: number; overdue: number }> = {};
+      for (const s of dashboard.students) {
+        gradesMap[s.id] = { grade: (s as any).grade ?? 0, overdue: (s as any).overdue ?? 0 };
+      }
+      setStudentGrades(gradesMap);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateModuleProgress = async (courseModules: Module[], courseStudents: User[]) => {
-    const progressMap: Record<number, number> = {};
-    const gradesMap: Record<number, { grade: number; overdue: number }> = {};
-
-    const postedModules = courseModules.filter(m => m.is_posted);
-
-    // Fetch all questions and submissions for all posted modules in parallel
-    const [allQuestions, allSubmissions] = await Promise.all([
-      Promise.all(postedModules.map(m => questionAPI.getAll(m.id).catch(() => []))),
-      Promise.all(postedModules.map(m => submissionAPI.getAll(undefined, m.id).catch(() => [] as Submission[]))),
-    ]);
-
-    // Build lookup maps
-    const questionsByModule: Record<number, number> = {};
-    const submissionsByModule: Record<number, Submission[]> = {};
-
-    postedModules.forEach((module, i) => {
-      questionsByModule[module.id] = allQuestions[i].length;
-      submissionsByModule[module.id] = allSubmissions[i];
-    });
-
-    // Mark unposted modules as 0 progress
-    courseModules.forEach(m => {
-      if (!m.is_posted) progressMap[m.id] = 0;
-    });
-
-    // Calculate module completion progress
-    for (const module of postedModules) {
-      const totalQuestions = questionsByModule[module.id];
-      if (totalQuestions === 0) {
-        progressMap[module.id] = 0;
-        continue;
-      }
-
-      let completedCount = 0;
-      for (const student of courseStudents) {
-        const studentSubs = submissionsByModule[module.id].filter(s => s.user_id === student.id);
-        const uniqueQuestions = new Set(studentSubs.map(s => s.question_id));
-        if (uniqueQuestions.size >= totalQuestions) completedCount++;
-      }
-
-      progressMap[module.id] = courseStudents.length > 0
-        ? Math.round((completedCount / courseStudents.length) * 100)
-        : 0;
-    }
-
-    // Calculate student grades and overdue counts
-    for (const student of courseStudents) {
-      let overdueCount = 0;
-      const studentSubmsByModule: Record<number, Submission[]> = {};
-
-      for (const module of postedModules) {
-        const studentSubs = submissionsByModule[module.id].filter(s => s.user_id === student.id);
-        studentSubmsByModule[module.id] = studentSubs;
-
-        for (const sub of studentSubs) {
-          if (sub.grade?.is_overdue) overdueCount++;
-        }
-
-        if (module.due_date) {
-          const datePart = module.due_date.split('T')[0];
-          const [year, month, day] = datePart.split('-').map(Number);
-          const dueDate = new Date(year, month - 1, day);
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-
-          const totalQuestions = questionsByModule[module.id];
-          const uniqueQuestions = new Set(studentSubs.map(s => s.question_id));
-
-          if (dueDate < now && totalQuestions > 0 && uniqueQuestions.size < totalQuestions) {
-            overdueCount += totalQuestions - uniqueQuestions.size;
-          }
-        }
-      }
-
-      const overallPct = equalModuleOverallPercent(courseModules, studentSubmsByModule);
-      gradesMap[student.id] = { grade: overallPct ?? 0, overdue: overdueCount };
-    }
-
-    setModuleProgress(progressMap);
-    setStudentGrades(gradesMap);
   };
 
   const handleResetPassword = async () => {

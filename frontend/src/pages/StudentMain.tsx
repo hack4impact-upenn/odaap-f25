@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { courseAPI, submissionAPI, moduleAPI, announcementAPI } from '../services/api';
+import { courseAPI, dashboardAPI } from '../services/api';
 import {
   moduleDisplayTitle,
   type Course,
@@ -65,64 +65,42 @@ const StudentMain: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      
+
       if (!user) return;
 
       // Load enrolled courses
       const enrolledCourses = await courseAPI.getEnrolledCourses(user.id);
       setCourses(enrolledCourses);
 
-        if (enrolledCourses.length > 0) {
+      if (enrolledCourses.length > 0) {
         const currentCourse = enrolledCourses[0];
-        
-        // Load modules for the first course (or you could show all)
-        const courseModules = await courseAPI.getModules(currentCourse.id);
-        const publishedModules = courseModules.filter(m => m.is_posted);
-        setModules(publishedModules.sort((a, b) => a.module_order - b.module_order));
-        
-        // Load announcements for the course
-        try {
-          const announcementsData = await announcementAPI.getAll(currentCourse.id);
-          setAnnouncements(announcementsData);
-        } catch (error) {
-          console.error('Error loading announcements:', error);
-          setAnnouncements([]);
-        }
 
-        // Load submissions, accessibility, and question counts for all modules in parallel
+        // Single API call for all dashboard data
+        const dashboard = await dashboardAPI.getStudentDashboard(currentCourse.id);
+
+        const allModules = dashboard.modules as Array<{
+          id: number; module_name: string; custom_module_name?: string;
+          module_description: string; module_order: number; is_posted: boolean;
+          youtube_link: string; due_date: string | null; question_count: number;
+          submissions: Submission[]; is_accessible: boolean; is_completed: boolean;
+        }>;
+
+        const publishedModules = allModules.filter(m => m.is_posted);
+        setModules(publishedModules.sort((a, b) => a.module_order - b.module_order) as unknown as Module[]);
+        setAnnouncements(dashboard.announcements);
+
         const submissionsMap: Record<number, Submission[]> = {};
         const questionsMap: Record<number, number> = {};
         const accessibilityMap: Record<number, { is_accessible: boolean; is_completed: boolean }> = {};
 
-        // Fetch submissions and accessibility for all modules in parallel
-        const [submissionsResults, accessibilityResults] = await Promise.all([
-          Promise.all(courseModules.map(m =>
-            submissionAPI.getAll(undefined, m.id).catch(() => [] as Submission[])
-          )),
-          user.isStudent
-            ? Promise.all(courseModules.map(m =>
-                moduleAPI.checkAccessibility(m.id).catch(() => ({ is_accessible: false, is_completed: false }))
-              ))
-            : Promise.resolve(courseModules.map(() => ({ is_accessible: true, is_completed: false }))),
-        ]);
-
-        courseModules.forEach((module, i) => {
-          submissionsMap[module.id] = submissionsResults[i].filter(s => s.user_id === user.id);
-          accessibilityMap[module.id] = accessibilityResults[i];
-        });
-
-        // Fetch question counts in parallel (only for accessible modules)
-        const questionResults = await Promise.all(
-          courseModules.map(m =>
-            accessibilityMap[m.id]?.is_accessible
-              ? moduleAPI.getQuestions(m.id).then(q => q.length).catch(() => 0)
-              : Promise.resolve(0)
-          )
-        );
-
-        courseModules.forEach((module, i) => {
-          questionsMap[module.id] = questionResults[i];
-        });
+        for (const mod of allModules) {
+          submissionsMap[mod.id] = mod.submissions;
+          questionsMap[mod.id] = mod.question_count;
+          accessibilityMap[mod.id] = {
+            is_accessible: mod.is_accessible,
+            is_completed: mod.is_completed,
+          };
+        }
 
         setSubmissions(submissionsMap);
         setModuleQuestions(questionsMap);
