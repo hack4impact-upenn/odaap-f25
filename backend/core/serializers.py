@@ -1,8 +1,11 @@
+import boto3
+from urllib.parse import urlparse
 
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from .models import Course, User, Module, Question, Submission, UserModuleGrade, UserCourseGrade, UserQuestionGrade, CourseToStudents, CourseToTeachers, CourseToModules, ModuleToQuestions, QuestionToCorrectAnswers, Announcement, Resource
 
 User = get_user_model()
@@ -88,7 +91,8 @@ class ModuleSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source='course.id', read_only=True)
     course_name = serializers.CharField(source='course.course_name', read_only=True)
     course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all(), write_only=True, required=False)
-    
+    display_title = serializers.SerializerMethodField()
+
     class Meta:
         model = Module
         fields = [
@@ -100,10 +104,25 @@ class ModuleSerializer(serializers.ModelSerializer):
             'module_description',
             'youtube_link',
             'module_order',
+            'display_title',
             'score_total',
             'is_posted',
             'due_date'
         ]
+
+    def get_display_title(self, obj):
+        """Single line for UI. Does not prefix again if module_name already starts with 'Module {order} -'."""
+        order = obj.module_order
+        name = (obj.module_name or "").strip()
+        if not name:
+            return f"Module {order}"
+        prefix = f"Module {order} - "
+        lower = name.lower()
+        if lower.startswith(prefix.lower()):
+            return name
+        if lower == f"module {order}".lower():
+            return name
+        return f"{prefix}{name}"
 
 class QuestionSerializer(serializers.ModelSerializer):
     module_id = serializers.IntegerField(source='module.id', read_only=True)
@@ -266,6 +285,40 @@ class QuestionToCorrectAnswersSerializer(serializers.ModelSerializer):
             'correct_answer'
         ]
 
+
+def presign_resource_pdf_url(url: str) -> str:
+    """
+    For private S3 buckets: return a time-limited presigned GET URL for uploaded
+    resource PDFs (keys under resource_pdfs/). Other URLs are unchanged.
+    """
+    if not url or not isinstance(url, str):
+        return url
+    bucket = getattr(settings, "AWS_STORAGE_BUCKET_NAME", None) or ""
+    key_id = getattr(settings, "AWS_ACCESS_KEY_ID", None)
+    secret = getattr(settings, "AWS_SECRET_ACCESS_KEY", None)
+    region = getattr(settings, "AWS_S3_REGION_NAME", "us-east-1")
+    if not bucket or not key_id or not secret:
+        return url
+    try:
+        parsed = urlparse(url.strip())
+        key = parsed.path.lstrip("/")
+        if not key.startswith("resource_pdfs/"):
+            return url
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=key_id,
+            aws_secret_access_key=secret,
+            region_name=region,
+        )
+        return s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=3600,
+        )
+    except Exception:
+        return url
+
+
 class ResourceSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source='course.id', read_only=True)
 
@@ -282,4 +335,22 @@ class ResourceSerializer(serializers.ModelSerializer):
             'created_at'
         ]
         read_only_fields = ['created_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        links = data.get("links")
+        if isinstance(links, list):
+            data["links"] = [self._presign_link_item(link) for link in links]
+        return data
+
+    @staticmethod
+    def _presign_link_item(link):
+        if not isinstance(link, dict):
+            return link
+        out = dict(link)
+        url = out.get("url") or ""
+        kind = out.get("kind")
+        if kind == "pdf" or "/resource_pdfs/" in url:
+            out["url"] = presign_resource_pdf_url(url)
+        return out
         

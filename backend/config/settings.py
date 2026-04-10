@@ -166,15 +166,31 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# AWS S3 Configuration
-INSTALLED_APPS += ['storages']
-
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = "us-east-1"
+# --- File uploads: S3 vs local disk ---
+# .env.example fills fake AWS_* strings; that used to turn S3 on and break PDF upload.
+# Development: S3 only if USE_S3_MEDIA=true (and all three vars set). Otherwise backend/media/.
+# Production (ENVIRONMENT != development): S3 when bucket + keys are all set.
+AWS_ACCESS_KEY_ID = (os.getenv("AWS_ACCESS_KEY_ID") or "").strip() or None
+AWS_SECRET_ACCESS_KEY = (os.getenv("AWS_SECRET_ACCESS_KEY") or "").strip() or None
+AWS_STORAGE_BUCKET_NAME = (os.getenv("AWS_STORAGE_BUCKET_NAME") or "").strip() or None
+AWS_S3_REGION_NAME = (os.getenv("AWS_S3_REGION_NAME") or "us-east-1").strip() or "us-east-1"
 AWS_QUERYSTRING_AUTH = False
 AWS_DEFAULT_ACL = None
 
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/"
+_aws_fully_configured = bool(
+    AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and AWS_STORAGE_BUCKET_NAME
+)
+_is_development = (ENVIRONMENT or "").strip().lower() == "development"
+_s3_media_explicit = (os.getenv("USE_S3_MEDIA") or "").strip().lower() in ("1", "true", "yes")
+
+USE_S3_STORAGE = _aws_fully_configured and (
+    (_is_development and _s3_media_explicit) or (not _is_development)
+)
+
+if USE_S3_STORAGE:
+    INSTALLED_APPS += ["storages"]
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/"
+else:
+    MEDIA_ROOT = BASE_DIR / "media"
+    MEDIA_URL = "/media/"
