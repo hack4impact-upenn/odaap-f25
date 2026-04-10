@@ -40,6 +40,7 @@ const TeacherMain: React.FC = () => {
 
       const courseModules = dashboard.modules as Array<Module & { progress: number }>;
       setModules(courseModules.sort((a: Module, b: Module) => a.module_order - b.module_order));
+
       setStudents(dashboard.students);
       setTeachers(dashboard.teachers);
 
@@ -178,7 +179,7 @@ const TeacherMain: React.FC = () => {
                           <span className="grade-weighting-note">(equal weight per module)</span>
                         </span>
                         <span className={`status ${studentData.overdue > 0 ? 'overdue' : 'no-overdue'}`}>
-                          {studentData.overdue > 0
+                          {studentData.overdue > 0 
                             ? `${studentData.overdue} Overdue Assignment${studentData.overdue !== 1 ? 's' : ''}`
                             : 'No Overdue Assignments'}
                         </span>

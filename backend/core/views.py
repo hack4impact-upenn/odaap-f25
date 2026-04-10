@@ -294,13 +294,7 @@ def student_dashboard(request, course_id):
 
     # Prefetch all questions and submissions for all modules at once
     all_questions = Question.objects.filter(module__in=modules)
-    all_submissions = list(
-        Submission.objects.filter(question__module__in=modules).select_related('question')
-    )
-    all_grades = {
-        g.submission_id: g
-        for g in UserQuestionGrade.objects.filter(submission__question__module__in=modules)
-    }
+    all_submissions = Submission.objects.filter(question__module__in=modules)
 
     # Build lookup dicts
     questions_by_module = {}
@@ -349,14 +343,16 @@ def student_dashboard(request, course_id):
         serialized_submissions = []
         for s in user_submissions:
             grade_data = None
-            grade = all_grades.get(s.id)
-            if grade:
+            try:
+                grade = UserQuestionGrade.objects.get(submission=s)
                 grade_data = {
                     "score": float(grade.score),
                     "total": float(grade.total),
                     "is_overdue": grade.is_overdue,
                     "teacher_comment": grade.teacher_comment or "",
                 }
+            except UserQuestionGrade.DoesNotExist:
+                pass
 
             serialized_submissions.append({
                 "id": s.id,
@@ -402,9 +398,7 @@ def student_dashboard(request, course_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def teacher_dashboard(request, course_id):
-    """Single fast endpoint: modules, students, teachers, progress, grades."""
-    from datetime import date as date_cls
-
+    """Return modules, students, teachers, progress, and grades in one call."""
     user = request.user
     course = get_object_or_404(Course, pk=course_id)
 
@@ -415,10 +409,11 @@ def teacher_dashboard(request, course_id):
     students = list(User.objects.filter(coursetostudents__course=course))
     teachers = list(User.objects.filter(coursetoteachers__course=course))
 
-    # 3 bulk queries — no N+1
+    # Prefetch all questions and submissions at once
     all_questions = list(Question.objects.filter(module__in=modules))
     all_submissions = list(
-        Submission.objects.filter(question__module__in=modules).select_related('question')
+        Submission.objects.filter(question__module__in=modules)
+        .select_related('question')
     )
     all_grades = {
         g.submission_id: g
@@ -434,44 +429,39 @@ def teacher_dashboard(request, course_id):
         submissions_by_module.setdefault(s.question.module_id, []).append(s)
 
     posted_modules = [m for m in modules if m.is_posted]
+    student_ids = {s.id for s in students}
 
-    # Module data with progress
-    module_data = []
+    # Module progress: % of students who completed each module
+    module_progress = {}
     for module in modules:
-        progress = 0
-        if module.is_posted:
-            mod_questions = questions_by_module.get(module.id, [])
-            if mod_questions and students:
-                q_ids = {q.id for q in mod_questions}
-                mod_subs = submissions_by_module.get(module.id, [])
-                completed = sum(
-                    1 for student in students
-                    if {s.question_id for s in mod_subs if s.user_id == student.id} >= q_ids
-                )
-                progress = round((completed / len(students)) * 100)
+        if not module.is_posted:
+            module_progress[module.id] = 0
+            continue
+        mod_questions = questions_by_module.get(module.id, [])
+        if not mod_questions:
+            module_progress[module.id] = 0
+            continue
+        mod_subs = submissions_by_module.get(module.id, [])
+        completed = 0
+        for student in students:
+            student_subs = [s for s in mod_subs if s.user_id == student.id]
+            unique_q = {s.question_id for s in student_subs}
+            if unique_q >= {q.id for q in mod_questions}:
+                completed += 1
+        module_progress[module.id] = (
+            round((completed / len(students)) * 100) if students else 0
+        )
 
-        module_data.append({
-            "id": module.id,
-            "module_name": module.module_name,
-            "custom_module_name": getattr(module, 'custom_module_name', None),
-            "module_description": module.module_description,
-            "module_order": module.module_order,
-            "is_posted": module.is_posted,
-            "youtube_link": module.youtube_link,
-            "due_date": module.due_date.isoformat() if module.due_date else None,
-            "progress": progress,
-        })
-
-    # Student data with grades
-    student_data = []
+    # Student grades and overdue counts
+    student_grades = {}
     for student in students:
         overdue_count = 0
-        total_modules_with_grades = 0
-        total_pct = 0.0
+        subs_by_mod = {}
 
         for module in posted_modules:
             mod_subs = submissions_by_module.get(module.id, [])
             student_subs = [s for s in mod_subs if s.user_id == student.id]
+            subs_by_mod[module.id] = student_subs
 
             for s in student_subs:
                 grade = all_grades.get(s.id)
@@ -479,33 +469,76 @@ def teacher_dashboard(request, course_id):
                     overdue_count += 1
 
             if module.due_date:
-                due = module.due_date if isinstance(module.due_date, date_cls) else module.due_date.date()
-                if due < date_cls.today():
+                from datetime import date
+                due = module.due_date if isinstance(module.due_date, date) else module.due_date.date()
+                from datetime import date as date_cls
+                today = date_cls.today()
+                if due < today:
                     mod_questions = questions_by_module.get(module.id, [])
                     unique_q = {s.question_id for s in student_subs}
                     if mod_questions and len(unique_q) < len(mod_questions):
                         overdue_count += len(mod_questions) - len(unique_q)
 
-            total_score = sum(float(all_grades[s.id].score) for s in student_subs if s.id in all_grades)
-            total_possible = sum(float(all_grades[s.id].total) for s in student_subs if s.id in all_grades)
+        # Calculate overall grade using same logic as frontend
+        total_modules_with_grades = 0
+        total_pct = 0.0
+        for module in posted_modules:
+            mod_subs = subs_by_mod.get(module.id, [])
+            if not mod_subs:
+                continue
+            total_score = 0.0
+            total_possible = 0.0
+            for s in mod_subs:
+                grade = all_grades.get(s.id)
+                if grade:
+                    total_score += float(grade.score)
+                    total_possible += float(grade.total)
             if total_possible > 0:
                 total_pct += (total_score / total_possible) * 100
                 total_modules_with_grades += 1
 
         overall = round(total_pct / total_modules_with_grades) if total_modules_with_grades > 0 else 0
 
-        student_data.append({
-            "id": student.id, "email": student.email,
-            "first_name": student.first_name, "last_name": student.last_name,
-            "isStudent": student.isStudent,
-            "grade": overall, "overdue": overdue_count,
+        student_grades[student.id] = {"grade": overall, "overdue": overdue_count}
+
+    # Serialize
+    module_data = []
+    for m in modules:
+        module_data.append({
+            "id": m.id,
+            "module_name": m.module_name,
+            "custom_module_name": getattr(m, 'custom_module_name', None),
+            "module_description": m.module_description,
+            "module_order": m.module_order,
+            "is_posted": m.is_posted,
+            "youtube_link": m.youtube_link,
+            "due_date": m.due_date.isoformat() if m.due_date else None,
+            "progress": module_progress.get(m.id, 0),
         })
 
-    teacher_data = [{
-        "id": t.id, "email": t.email,
-        "first_name": t.first_name, "last_name": t.last_name,
-        "isStudent": t.isStudent,
-    } for t in teachers]
+    student_data = [
+        {
+            "id": s.id,
+            "email": s.email,
+            "first_name": s.first_name,
+            "last_name": s.last_name,
+            "isStudent": s.isStudent,
+            "grade": student_grades.get(s.id, {}).get("grade", 0),
+            "overdue": student_grades.get(s.id, {}).get("overdue", 0),
+        }
+        for s in students
+    ]
+
+    teacher_data = [
+        {
+            "id": t.id,
+            "email": t.email,
+            "first_name": t.first_name,
+            "last_name": t.last_name,
+            "isStudent": t.isStudent,
+        }
+        for t in teachers
+    ]
 
     return Response({
         "modules": module_data,
