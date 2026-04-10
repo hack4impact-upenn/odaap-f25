@@ -355,6 +355,24 @@ export const resourceAPI = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/resources/${id}/`);
   },
+
+  /** Upload a PDF for resource links (multipart). Teachers only. */
+  uploadPdf: async (file: File, courseId: number): Promise<{ url: string; filename: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('course_id', String(courseId));
+    const token = localStorage.getItem('access_token');
+    const res = await fetch(`${API_BASE_URL}/resources/upload-pdf/`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; url?: string; filename?: string };
+    if (!res.ok) {
+      throw new Error(data.error || res.statusText || 'Upload failed');
+    }
+    return { url: data.url!, filename: data.filename || file.name };
+  },
 };
 
 export default api;

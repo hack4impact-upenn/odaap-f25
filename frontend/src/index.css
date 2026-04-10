@@ -2,6 +2,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Keeps a vertical scrollbar track visible so long pages feel scrollable (esp. macOS). */
+  overflow-y: scroll;
+}
+
 :root {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.5;

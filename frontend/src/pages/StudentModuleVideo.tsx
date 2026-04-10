@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { moduleAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { Module } from '../types';
+import { moduleDisplayTitle, type Module } from '../types';
 import './StudentModuleVideo.css';
 
 const StudentModuleVideo: React.FC = () => {
@@ -99,16 +99,12 @@ const StudentModuleVideo: React.FC = () => {
     
     // Handle different YouTube URL formats
     const patterns = [
-      // Standard watch URL: https://www.youtube.com/watch?v=VIDEO_ID
       /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-      // Short URL: https://youtu.be/VIDEO_ID
       /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-      // Embed URL: https://www.youtube.com/embed/VIDEO_ID
       /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-      // Direct video ID (11 characters)
+      /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
       /^([a-zA-Z0-9_-]{11})$/,
-      // URL with other parameters: https://www.youtube.com/watch?v=VIDEO_ID&other=params
-      /[?&]v=([a-zA-Z0-9_-]{11})/
+      /[?&]v=([a-zA-Z0-9_-]{11})/,
     ];
     
     for (const pattern of patterns) {
@@ -122,26 +118,22 @@ const StudentModuleVideo: React.FC = () => {
   };
 
   const handleNext = () => {
-    // Navigate to the questions page
-    navigate(`/student/hw/${moduleId}`);
+    navigate(`/student/hw/${moduleId}`, { state: { fromVideo: true } });
   };
 
   const handleSkip = () => {
-    // If no video, or user wants to skip, go directly to questions
-    navigate(`/student/hw/${moduleId}`);
+    navigate(`/student/hw/${moduleId}`, { state: { fromVideo: true } });
   };
 
   // If no video link or video ID couldn't be extracted, redirect to questions
   // Only check after loading is complete and we have module data
   useEffect(() => {
     if (!loading && module) {
-      // Only redirect if there's definitely no video link, or if we tried to extract but got null
       if (!module.youtube_link) {
-        navigate(`/student/hw/${moduleId}`);
+        navigate(`/student/hw/${moduleId}`, { replace: true, state: { fromVideo: true } });
       } else if (module.youtube_link && !videoId) {
-        // If we have a youtube_link but couldn't extract the ID, also redirect
         console.warn('Could not extract video ID from:', module.youtube_link);
-        navigate(`/student/hw/${moduleId}`);
+        navigate(`/student/hw/${moduleId}`, { replace: true, state: { fromVideo: true } });
       }
     }
   }, [loading, module, videoId, moduleId, navigate]);
@@ -194,7 +186,7 @@ const StudentModuleVideo: React.FC = () => {
         </button>
         
         <div className="video-header">
-          <h1>{module.module_name}</h1>
+          <h1>{moduleDisplayTitle(module)}</h1>
           {module.module_description && (
             <p className="module-description">{module.module_description}</p>
           )}

@@ -3,8 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { courseAPI, resourceAPI } from '../services/api';
-import type { Course, Resource } from '../types';
+import type { Course, Resource, ResourceLink } from '../types';
 import './StudentResources.css';
+
+function isPdfResourceLink(link: ResourceLink): boolean {
+  if (link.kind === 'pdf') return true;
+  try {
+    const u = link.url.toLowerCase();
+    return u.endsWith('.pdf') || u.includes('/resource_pdfs/');
+  } catch {
+    return false;
+  }
+}
+
+function pdfDownloadFilename(link: ResourceLink): string {
+  let name = link.label.trim() || 'document';
+  if (!name.toLowerCase().endsWith('.pdf')) {
+    name = `${name}.pdf`;
+  }
+  return name;
+}
 
 const StudentResources: React.FC = () => {
   const navigate = useNavigate();
@@ -73,18 +91,22 @@ const StudentResources: React.FC = () => {
                 )}
                 {resource.links.length > 0 && (
                   <div className="resource-card-links">
-                    {resource.links.map((link, i) => (
-                      <a
-                        key={i}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="resource-card-link"
-                      >
-                        {link.label}
-                        <span className="link-icon">🔗</span>
-                      </a>
-                    ))}
+                    {resource.links.map((link, i) => {
+                      const isPdf = isPdfResourceLink(link);
+                      return (
+                        <a
+                          key={i}
+                          href={link.url}
+                          className={`resource-card-link ${isPdf ? 'resource-card-link-pdf' : ''}`}
+                          {...(isPdf
+                            ? { download: pdfDownloadFilename(link) }
+                            : { target: '_blank', rel: 'noopener noreferrer' })}
+                        >
+                          {link.label}
+                          <span className="link-icon">{isPdf ? '📄' : '🔗'}</span>
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
               </div>

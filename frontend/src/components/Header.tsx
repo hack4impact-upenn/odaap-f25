@@ -31,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         <div className="user-info">
           <span className="user-icon">👤</span>
           <span className="user-name">
-            {user?.first_name} {user?.last_name} ({user?.isStudent ? 'Student' : 'Teacher'})
+            {user?.first_name} {user?.last_name} 
           </span>
         </div>
         <button onClick={handleLogout} className="logout-button">

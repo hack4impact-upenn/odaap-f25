@@ -3,8 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useCourse } from '../contexts/CourseContext';
 import { courseAPI, moduleAPI, submissionAPI } from '../services/api';
-import type { Module, Question, Submission, User } from '../types';
+import { moduleDisplayTitle, type Module, type Question, type Submission, type User } from '../types';
+import { parseFieldAssignmentResponse } from '../utils/fieldAssignment';
 import './TeacherGrading.css';
+
+function mcqCorrectAnswersList(q: Question): string[] {
+  return (q.correct_answers ?? []).map((c) => String(c).trim()).filter(Boolean);
+}
+
+function mcqOptionIsKeyedCorrect(option: string, question: Question): boolean {
+  return mcqCorrectAnswersList(question).some((c) => c === (option || '').trim());
+}
+
+function isUrl(text: string): boolean {
+  try {
+    const url = new URL(text.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 const TeacherGrading: React.FC = () => {
   const { selectedCourse, courses, setSelectedCourse } = useCourse();
@@ -18,7 +36,11 @@ const TeacherGrading: React.FC = () => {
   const [expandedStudents, setExpandedStudents] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [savingStudentId, setSavingStudentId] = useState<number | null>(null);
+  /** Raw score field text so users can clear, type "0.", etc. Key: `${studentId}-${questionId}` */
+  const [gradeInputStrings, setGradeInputStrings] = useState<Record<string, string>>({});
   const navigate = useNavigate();
+
+  const gradeInputKey = (studentId: number, questionId: number) => `${studentId}-${questionId}`;
 
   useEffect(() => {
     if (selectedCourse) {
@@ -46,10 +68,11 @@ const TeacherGrading: React.FC = () => {
     if (!selectedModule || !selectedCourse) return;
     
     setLoading(true);
+    setGradeInputStrings({});
     try {
       // Load questions for the module
       const questionsData = await moduleAPI.getQuestions(selectedModule.id);
-      const sortedQuestions = questionsData.sort((a, b) => a.question_order - b.question_order);
+      const sortedQuestions = [...questionsData].sort((a, b) => a.question_order - b.question_order);
       setQuestions(sortedQuestions);
 
       // Load students for the course
@@ -88,14 +111,17 @@ const TeacherGrading: React.FC = () => {
         }
         submissionsMap[userId][questionId] = submission;
         
-        // Initialize grade if submission has a grade
+        // Initialize grade if submission has a grade (includes MCQ autogrades)
         if (submission.grade && userId && questionId) {
           if (!gradesMap[userId]) {
             gradesMap[userId] = {};
           }
+          const rawScore = submission.grade.score ?? 0;
+          const rawTotal = submission.grade.total && submission.grade.total > 0 ? submission.grade.total : 1;
+          const normalizedScore = rawTotal !== 1 ? rawScore / rawTotal : rawScore;
           gradesMap[userId][questionId] = {
-            score: submission.grade.score,
-            total: submission.grade.total || 1
+            score: Math.round(Math.min(normalizedScore, 1) * 10) / 10,
+            total: 1,
           };
           
           // Initialize comment if grade has a comment
@@ -120,19 +146,39 @@ const TeacherGrading: React.FC = () => {
   };
 
   const handleGradeChange = (studentId: number, questionId: number, score: number) => {
-    // Allow decimal scores between 0 and 1 (since each question is worth 1 point)
-    const clampedScore = Math.max(0, Math.min(1, score));
-    
+    const total = 1;
+    const clampedScore = Math.max(0, Math.min(total, Number.isFinite(score) ? score : 0));
+
     setGrades(prev => ({
       ...prev,
       [studentId]: {
         ...prev[studentId],
         [questionId]: {
           score: clampedScore,
-          total: 1
-        }
-      }
+          total,
+        },
+      },
     }));
+  };
+
+  const handleGradeFieldChange = (studentId: number, questionId: number, raw: string) => {
+    const key = gradeInputKey(studentId, questionId);
+    setGradeInputStrings((prev) => ({ ...prev, [key]: raw }));
+
+    const trimmed = raw.trim();
+    if (trimmed === '' || trimmed === '.') {
+      setGrades((prev) => {
+        const studentGrades = { ...(prev[studentId] || {}) };
+        delete studentGrades[questionId];
+        return { ...prev, [studentId]: studentGrades };
+      });
+      return;
+    }
+
+    const num = parseFloat(raw);
+    if (!Number.isNaN(num)) {
+      handleGradeChange(studentId, questionId, num);
+    }
   };
 
   const handleCommentChange = (studentId: number, questionId: number, comment: string) => {
@@ -186,7 +232,7 @@ const TeacherGrading: React.FC = () => {
           const comment = studentComments[question.id] || '';
           
           if (submission && grade) {
-            return submissionAPI.gradeSubmission(submission.id, grade.score, 1, comment);
+            return submissionAPI.gradeSubmission(submission.id, Math.min(grade.score, 1), 1, comment);
           }
           return null;
         });
@@ -207,15 +253,18 @@ const TeacherGrading: React.FC = () => {
     }
   };
 
-  const getStudentTotalScore = (studentId: number): number => {
+  const getStudentGradeSummary = (studentId: number): { score: string; gradedCount: number } => {
     let total = 0;
+    let gradedCount = 0;
     questions.forEach(question => {
       const grade = grades[studentId]?.[question.id];
-      if (grade) {
-        total += grade.score;
+      if (grade && grade.score !== undefined) {
+        total += Math.min(grade.score, 1);
+        gradedCount++;
       }
     });
-    return total;
+    const scoreStr = Number.isInteger(total) ? String(total) : total.toFixed(1);
+    return { score: scoreStr, gradedCount };
   };
 
   if (loading && !selectedModule) {
@@ -273,7 +322,7 @@ const TeacherGrading: React.FC = () => {
                 <option value="">-- Select a module --</option>
                 {modules.map((module) => (
                   <option key={module.id} value={module.id}>
-                    {module.module_name}
+                    {moduleDisplayTitle(module)}
                   </option>
                 ))}
               </select>
@@ -284,7 +333,7 @@ const TeacherGrading: React.FC = () => {
         {selectedModule && questions.length > 0 && (
           <div className="grading-container">
             <div className="grading-header">
-              <h2>{selectedModule.module_name}</h2>
+              <h2>{moduleDisplayTitle(selectedModule)}</h2>
               <p className="module-info">
                 {questions.length} question{questions.length !== 1 ? 's' : ''} • Total points: {questions.length}
               </p>
@@ -322,9 +371,16 @@ const TeacherGrading: React.FC = () => {
                 const renderStudentCard = (student: typeof students[0]) => {
                   const studentSubmissions = submissions[student.id] || {};
                   const studentGrades = grades[student.id] || {};
-                  const totalScore = getStudentTotalScore(student.id);
+                  const { score: totalScore, gradedCount } = getStudentGradeSummary(student.id);
                   const hasAnySubmission = Object.keys(studentSubmissions).length > 0;
                   const isExpanded = expandedStudents.has(student.id);
+                  const questionsWithSubmission = questions.filter((q) => studentSubmissions[q.id]);
+                  const moduleFullyGraded =
+                    questionsWithSubmission.length > 0 &&
+                    questionsWithSubmission.every((q) => {
+                      const g = studentGrades[q.id];
+                      return g !== undefined && g.score !== undefined;
+                    });
 
                   return (
                     <div key={student.id} className="student-grading-card">
@@ -336,9 +392,16 @@ const TeacherGrading: React.FC = () => {
                           <h3 className="student-name-header">
                             {student.first_name} {student.last_name}
                           </h3>
-                          <div className="student-total-grade">
-                            Total: <strong>{totalScore} / {questions.length}</strong>
-                          </div>
+                          {moduleFullyGraded && (
+                            <div className="student-total-grade">
+                              Total: <strong>{totalScore} / {gradedCount}</strong>
+                              {gradedCount < questions.length && (
+                                <span className="graded-count-note">
+                                  {' '}({gradedCount} of {questions.length} graded)
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <span className={`student-toggle-arrow ${isExpanded ? 'expanded' : ''}`}>
                           ▼
@@ -359,12 +422,16 @@ const TeacherGrading: React.FC = () => {
                                   const grade = studentGrades[question.id];
                                   const comment = comments[student.id]?.[question.id] || '';
                                   const hasSubmission = !!submission;
+                                  const maxPoints = 1;
+                                  const scoreKey = gradeInputKey(student.id, question.id);
 
                                   return (
                                     <div key={question.id} className="question-grading-card">
                                       <div className="question-header-grading">
                                         <h4 className="question-number-grading">Question {qIndex + 1}</h4>
-                                        <span className="question-points-grading">(0-1 point)</span>
+                                        <span className="question-points-grading">
+                                          (0–{maxPoints} point{maxPoints !== 1 ? 's' : ''})
+                                        </span>
                                       </div>
                                       <p className="question-text-grading">{question.question_text}</p>
 
@@ -376,18 +443,140 @@ const TeacherGrading: React.FC = () => {
                                             {/* Multiple Choice Response */}
                                             {question.question_type === 'multiple_choice' && question.mcq_options ? (
                                               <div className="mcq-response-display">
-                                                {question.mcq_options.map((option, optIndex) => (
-                                                  <div 
-                                                    key={optIndex} 
-                                                    className={`mcq-option-display ${submission.submission_response === option ? 'selected' : ''}`}
-                                                  >
-                                                    <span className="option-radio">{submission.submission_response === option ? '●' : '○'}</span>
-                                                    <span className="option-text">{option}</span>
-                                                    {submission.submission_response === option && (
-                                                      <span className="selected-badge">Selected</span>
-                                                    )}
-                                                  </div>
-                                                ))}
+                                                {(() => {
+                                                  const keyed = mcqCorrectAnswersList(question);
+                                                  return (
+                                                    <>
+                                                      {question.mcq_options.map((option, optIndex) => {
+                                                        const selected = submission.submission_response === option;
+                                                        const keyedHere = mcqOptionIsKeyedCorrect(option, question);
+                                                        const wrongPick =
+                                                          selected && keyed.length > 0 && !keyedHere;
+                                                        return (
+                                                          <div
+                                                            key={optIndex}
+                                                            className={[
+                                                              'mcq-option-display',
+                                                              selected ? 'selected' : '',
+                                                              keyedHere ? 'answer-key' : '',
+                                                              wrongPick ? 'incorrect-selection' : '',
+                                                            ]
+                                                              .filter(Boolean)
+                                                              .join(' ')}
+                                                          >
+                                                            <span className="option-radio">
+                                                              {selected ? '●' : '○'}
+                                                            </span>
+                                                            <span className="option-text">{option}</span>
+                                                            {selected && (
+                                                              <span
+                                                                className={[
+                                                                  'selected-badge',
+                                                                  keyed.length
+                                                                    ? keyedHere
+                                                                      ? 'selected-correct'
+                                                                      : 'selected-wrong'
+                                                                    : '',
+                                                                ]
+                                                                  .filter(Boolean)
+                                                                  .join(' ')}
+                                                              >
+                                                                {keyed.length
+                                                                  ? keyedHere
+                                                                    ? 'Selected (correct)'
+                                                                    : 'Selected (incorrect)'
+                                                                  : 'Selected'}
+                                                              </span>
+                                                            )}
+                                                            {keyedHere && !selected && (
+                                                              <span className="answer-key-badge">Correct answer</span>
+                                                            )}
+                                                          </div>
+                                                        );
+                                                      })}
+                                                      
+                                                    </>
+                                                  );
+                                                })()}
+                                              </div>
+                                            ) : question.question_type === 'video' ? (
+                                              <div className="field-assignment-response-display">
+                                                {(() => {
+                                                  const raw = submission.submission_response || '';
+                                                  const p = parseFieldAssignmentResponse(raw);
+                                                  if (
+                                                    p &&
+                                                    (p.fileName || p.fileUrl || p.youtubeUrl)
+                                                  ) {
+                                                    return (
+                                                      <>
+                                                        {(p.fileName || p.fileUrl) && (
+                                                          <p className="field-assignment-grade-line">
+                                                            <span className="link-response-label">📎 File:</span>{' '}
+                                                            {p.fileName || 'Attachment'}
+                                                            {p.fileUrl && isUrl(p.fileUrl) && (
+                                                              <>
+                                                                {' '}
+                                                                <a
+                                                                  href={p.fileUrl.trim()}
+                                                                  target="_blank"
+                                                                  rel="noopener noreferrer"
+                                                                  className="link-response-url"
+                                                                >
+                                                                  Open
+                                                                </a>
+                                                              </>
+                                                            )}
+                                                            {p.fileUrl && !isUrl(p.fileUrl) && (
+                                                              <span className="field-assignment-ref">
+                                                                {' '}
+                                                                ({p.fileUrl})
+                                                              </span>
+                                                            )}
+                                                          </p>
+                                                        )}
+                                                        {p.youtubeUrl && (
+                                                          <p className="field-assignment-grade-line">
+                                                            <span className="link-response-label">▶ YouTube:</span>{' '}
+                                                            <a
+                                                              href={p.youtubeUrl.trim()}
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="link-response-url"
+                                                            >
+                                                              {p.youtubeUrl.trim()}
+                                                            </a>
+                                                          </p>
+                                                        )}
+                                                      </>
+                                                    );
+                                                  }
+                                                  if (isUrl(raw)) {
+                                                    return (
+                                                      <div className="link-response-display">
+                                                        <span className="link-response-label">🔗 Link:</span>
+                                                        <a
+                                                          href={raw.trim()}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="link-response-url"
+                                                        >
+                                                          {raw.trim()}
+                                                        </a>
+                                                      </div>
+                                                    );
+                                                  }
+                                                  return (
+                                                    <div className="written-response-display">
+                                                      <textarea
+                                                        className="response-textarea-readonly"
+                                                        value={raw}
+                                                        readOnly
+                                                        rows={4}
+                                                      />
+                                                    </div>
+                                                  );
+                                                })()}
                                               </div>
                                             ) : submission.submission_type === 'audio' ? (
                                               /* Audio Response */
@@ -407,8 +596,19 @@ const TeacherGrading: React.FC = () => {
                                                   </button>
                                                 )}
                                               </div>
+                                            ) : isUrl(submission.submission_response || '') ? (
+                                              <div className="link-response-display">
+                                                <span className="link-response-label">🔗 Link submission:</span>
+                                                <a
+                                                  href={submission.submission_response.trim()}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="link-response-url"
+                                                >
+                                                  {submission.submission_response.trim()}
+                                                </a>
+                                              </div>
                                             ) : (
-                                              /* Written Response */
                                               <div className="written-response-display">
                                                 <textarea
                                                   className="response-textarea-readonly"
@@ -435,16 +635,30 @@ const TeacherGrading: React.FC = () => {
                                               <label>Score:</label>
                                               <div className="grade-input-group-new">
                                                 <input
-                                                  type="number"
-                                                  min="0"
-                                                  max="1"
-                                                  step="0.1"
-                                                  value={grade?.score ?? ''}
-                                                  onChange={(e) => handleGradeChange(student.id, question.id, parseFloat(e.target.value) || 0)}
-                                                  placeholder="0.0"
+                                                  type="text"
+                                                  inputMode="decimal"
+                                                  autoComplete="off"
+                                                  value={
+                                                    Object.prototype.hasOwnProperty.call(gradeInputStrings, scoreKey)
+                                                      ? gradeInputStrings[scoreKey]
+                                                      : grade !== undefined
+                                                        ? String(grade.score)
+                                                        : ''
+                                                  }
+                                                  onChange={(e) =>
+                                                    handleGradeFieldChange(student.id, question.id, e.target.value)
+                                                  }
+                                                  onBlur={() => {
+                                                    setGradeInputStrings((prev) => {
+                                                      const next = { ...prev };
+                                                      delete next[scoreKey];
+                                                      return next;
+                                                    });
+                                                  }}
+                                                  placeholder="0–1"
                                                   className="grade-input-new"
                                                 />
-                                                <span className="grade-out-of-new">/ 1</span>
+                                                <span className="grade-out-of-new">/ {maxPoints}</span>
                                               </div>
                                             </div>
                                             <div className="comment-input-wrapper">
