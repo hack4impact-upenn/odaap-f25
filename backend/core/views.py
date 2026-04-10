@@ -298,9 +298,9 @@ def student_dashboard(request, course_id):
         Submission.objects.filter(question__module__in=modules).select_related('question')
     )
     # Grades keyed by (user_id, question_id)
-    grades_lookup = {}
+    student_grades_lookup = {}
     for g in UserQuestionGrade.objects.filter(question__module__in=modules):
-        grades_lookup[(g.user_id, g.question_id)] = g
+        student_grades_lookup[(g.user_id, g.question_id)] = g
 
     # Build lookup dicts
     questions_by_module = {}
@@ -349,7 +349,7 @@ def student_dashboard(request, course_id):
         serialized_submissions = []
         for s in user_submissions:
             grade_data = None
-            grade = grades_lookup.get((s.user_id, s.question_id))
+            grade = student_grades_lookup.get((s.user_id, s.question_id))
             if grade:
                 grade_data = {
                     "score": float(grade.score),
@@ -419,11 +419,9 @@ def teacher_dashboard(request, course_id):
         Submission.objects.filter(question__module__in=modules)
         .select_related('question')
     )
-    # Grades keyed by (user_id, question_id)
-    all_grades_list = list(UserQuestionGrade.objects.filter(question__module__in=modules))
-    grades_lookup = {}
-    for g in all_grades_list:
-        grades_lookup[(g.user_id, g.question_id)] = g
+    all_grades = {}
+    for g in UserQuestionGrade.objects.filter(question__module__in=modules):
+        all_grades[(g.user_id, g.question_id)] = g
 
     questions_by_module = {}
     for q in all_questions:
@@ -434,6 +432,7 @@ def teacher_dashboard(request, course_id):
         submissions_by_module.setdefault(s.question.module_id, []).append(s)
 
     posted_modules = [m for m in modules if m.is_posted]
+    student_ids = {s.id for s in students}
 
     # Module progress: % of students who completed each module
     module_progress = {}
@@ -446,55 +445,53 @@ def teacher_dashboard(request, course_id):
             module_progress[module.id] = 0
             continue
         mod_subs = submissions_by_module.get(module.id, [])
-        q_ids = {q.id for q in mod_questions}
         completed = 0
         for student in students:
-            student_q_ids = {s.question_id for s in mod_subs if s.user_id == student.id}
-            if student_q_ids >= q_ids:
+            student_subs = [s for s in mod_subs if s.user_id == student.id]
+            unique_q = {s.question_id for s in student_subs}
+            if unique_q >= {q.id for q in mod_questions}:
                 completed += 1
         module_progress[module.id] = (
             round((completed / len(students)) * 100) if students else 0
         )
 
     # Student grades and overdue counts
-    from datetime import date as date_cls
-    today = date_cls.today()
-
-    def _to_date(d):
-        if hasattr(d, 'date'):
-            return d.date()
-        return d
-
     student_grades = {}
     for student in students:
         overdue_count = 0
-        total_modules_with_grades = 0
-        total_pct = 0.0
+        subs_by_mod = {}
 
         for module in posted_modules:
             mod_subs = submissions_by_module.get(module.id, [])
             student_subs = [s for s in mod_subs if s.user_id == student.id]
+            subs_by_mod[module.id] = student_subs
 
-            # Check overdue from grades
             for s in student_subs:
-                grade = grades_lookup.get((student.id, s.question_id))
+                grade = all_grades.get((student.id, s.question_id))
                 if grade and grade.is_overdue:
                     overdue_count += 1
 
-            # Check missing submissions past due date
             if module.due_date:
-                due = _to_date(module.due_date)
+                from datetime import date as date_cls
+                due = module.due_date.date() if hasattr(module.due_date, 'date') else module.due_date
+                today = date_cls.today()
                 if due < today:
                     mod_questions = questions_by_module.get(module.id, [])
                     unique_q = {s.question_id for s in student_subs}
                     if mod_questions and len(unique_q) < len(mod_questions):
                         overdue_count += len(mod_questions) - len(unique_q)
 
-            # Calculate grade for this module
+        # Calculate overall grade using same logic as frontend
+        total_modules_with_grades = 0
+        total_pct = 0.0
+        for module in posted_modules:
+            mod_subs = subs_by_mod.get(module.id, [])
+            if not mod_subs:
+                continue
             total_score = 0.0
             total_possible = 0.0
-            for s in student_subs:
-                grade = grades_lookup.get((student.id, s.question_id))
+            for s in mod_subs:
+                grade = all_grades.get((student.id, s.question_id))
                 if grade:
                     total_score += float(grade.score)
                     total_possible += float(grade.total)
@@ -503,6 +500,7 @@ def teacher_dashboard(request, course_id):
                 total_modules_with_grades += 1
 
         overall = round(total_pct / total_modules_with_grades) if total_modules_with_grades > 0 else 0
+
         student_grades[student.id] = {"grade": overall, "overdue": overdue_count}
 
     # Serialize
