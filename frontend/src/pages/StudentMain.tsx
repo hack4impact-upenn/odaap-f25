@@ -89,68 +89,41 @@ const StudentMain: React.FC = () => {
           setAnnouncements([]);
         }
 
-        // Load submissions and question counts for all modules
+        // Load submissions, accessibility, and question counts for all modules in parallel
         const submissionsMap: Record<number, Submission[]> = {};
         const questionsMap: Record<number, number> = {};
-        
         const accessibilityMap: Record<number, { is_accessible: boolean; is_completed: boolean }> = {};
-        
-        for (const module of courseModules) {
-          try {
-            // Get submissions
-            const moduleSubmissions = await submissionAPI.getAll(undefined, module.id);
-            submissionsMap[module.id] = moduleSubmissions.filter(s => s.user_id === user.id);
-            
-            // Check module accessibility first (only for students)
-            if (user.isStudent) {
-              try {
-                const accessibility = await moduleAPI.checkAccessibility(module.id);
-                accessibilityMap[module.id] = {
-                  is_accessible: accessibility.is_accessible,
-                  is_completed: accessibility.is_completed
-                };
-                
-                // Only get questions if module is accessible
-                if (accessibility.is_accessible) {
-                  try {
-                    const questions = await moduleAPI.getQuestions(module.id);
-                    questionsMap[module.id] = questions.length;
-                  } catch (error) {
-                    questionsMap[module.id] = 0;
-                  }
-                } else {
-                  questionsMap[module.id] = 0;
-                }
-              } catch (error) {
-                // If check fails, assume not accessible
-                accessibilityMap[module.id] = {
-                  is_accessible: false,
-                  is_completed: false
-                };
-                questionsMap[module.id] = 0;
-              }
-            } else {
-              // Teachers can always access
-              accessibilityMap[module.id] = {
-                is_accessible: true,
-                is_completed: false
-              };
-              try {
-                const questions = await moduleAPI.getQuestions(module.id);
-                questionsMap[module.id] = questions.length;
-              } catch (error) {
-                questionsMap[module.id] = 0;
-              }
-            }
-          } catch (error) {
-            submissionsMap[module.id] = [];
-            questionsMap[module.id] = 0;
-            accessibilityMap[module.id] = {
-              is_accessible: false,
-              is_completed: false
-            };
-          }
-        }
+
+        // Fetch submissions and accessibility for all modules in parallel
+        const [submissionsResults, accessibilityResults] = await Promise.all([
+          Promise.all(courseModules.map(m =>
+            submissionAPI.getAll(undefined, m.id).catch(() => [] as Submission[])
+          )),
+          user.isStudent
+            ? Promise.all(courseModules.map(m =>
+                moduleAPI.checkAccessibility(m.id).catch(() => ({ is_accessible: false, is_completed: false }))
+              ))
+            : Promise.resolve(courseModules.map(() => ({ is_accessible: true, is_completed: false }))),
+        ]);
+
+        courseModules.forEach((module, i) => {
+          submissionsMap[module.id] = submissionsResults[i].filter(s => s.user_id === user.id);
+          accessibilityMap[module.id] = accessibilityResults[i];
+        });
+
+        // Fetch question counts in parallel (only for accessible modules)
+        const questionResults = await Promise.all(
+          courseModules.map(m =>
+            accessibilityMap[m.id]?.is_accessible
+              ? moduleAPI.getQuestions(m.id).then(q => q.length).catch(() => 0)
+              : Promise.resolve(0)
+          )
+        );
+
+        courseModules.forEach((module, i) => {
+          questionsMap[module.id] = questionResults[i];
+        });
+
         setSubmissions(submissionsMap);
         setModuleQuestions(questionsMap);
         setModuleAccessibility(accessibilityMap);
