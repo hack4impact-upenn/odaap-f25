@@ -25,13 +25,8 @@ env_path = BASE_DIR / ".env"
 
 AUTH_USER_MODEL = "core.User"
 
-if not env_path.exists():
-    sys.stderr.write(
-        f"\nERROR: Missing .env file at {env_path}\n"
-        "Please (copy from .env.example template) before running the project.\n\n"
-    )
-    sys.exit(1)
-load_dotenv(env_path)
+if env_path.exists():
+    load_dotenv(env_path)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -48,7 +43,7 @@ if ENVIRONMENT.lower() == "development":
 else:
     DEBUG = False
 
-os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 # Application definition
 
 INSTALLED_APPS = [
@@ -66,6 +61,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -123,6 +119,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
+# Add production frontend URL from env var (e.g. https://your-app.vercel.app)
+_extra_cors = os.getenv("CORS_ALLOWED_ORIGINS")
+if _extra_cors:
+    CORS_ALLOWED_ORIGINS += [o.strip() for o in _extra_cors.split(",") if o.strip()]
+
 CORS_ALLOW_CREDENTIALS = True
 
 # Password validation
@@ -160,6 +161,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
