@@ -402,7 +402,9 @@ def student_dashboard(request, course_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def teacher_dashboard(request, course_id):
-    """Fast endpoint: modules, students, teachers — no heavy computation."""
+    """Single fast endpoint: modules, students, teachers, progress, grades."""
+    from datetime import date as date_cls
+
     user = request.user
     course = get_object_or_404(Course, pk=course_id)
 
@@ -413,49 +415,7 @@ def teacher_dashboard(request, course_id):
     students = list(User.objects.filter(coursetostudents__course=course))
     teachers = list(User.objects.filter(coursetoteachers__course=course))
 
-    module_data = [{
-        "id": m.id,
-        "module_name": m.module_name,
-        "custom_module_name": getattr(m, 'custom_module_name', None),
-        "module_description": m.module_description,
-        "module_order": m.module_order,
-        "is_posted": m.is_posted,
-        "youtube_link": m.youtube_link,
-        "due_date": m.due_date.isoformat() if m.due_date else None,
-    } for m in modules]
-
-    student_data = [{
-        "id": s.id, "email": s.email,
-        "first_name": s.first_name, "last_name": s.last_name,
-        "isStudent": s.isStudent,
-    } for s in students]
-
-    teacher_data = [{
-        "id": t.id, "email": t.email,
-        "first_name": t.first_name, "last_name": t.last_name,
-        "isStudent": t.isStudent,
-    } for t in teachers]
-
-    return Response({
-        "modules": module_data,
-        "students": student_data,
-        "teachers": teacher_data,
-    })
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def teacher_dashboard_grades(request, course_id):
-    """Heavy endpoint: module progress and student grades. Called async after page loads."""
-    user = request.user
-    course = get_object_or_404(Course, pk=course_id)
-
-    if not CourseToTeachers.objects.filter(course=course, user=user).exists():
-        return Response({"error": "Not a teacher of this course"}, status=403)
-
-    modules = list(Module.objects.filter(course=course).order_by('module_order'))
-    students = list(User.objects.filter(coursetostudents__course=course))
-
+    # 3 bulk queries — no N+1
     all_questions = list(Question.objects.filter(module__in=modules))
     all_submissions = list(
         Submission.objects.filter(question__module__in=modules).select_related('question')
@@ -475,26 +435,35 @@ def teacher_dashboard_grades(request, course_id):
 
     posted_modules = [m for m in modules if m.is_posted]
 
-    # Module progress
-    module_progress = {}
+    # Module data with progress
+    module_data = []
     for module in modules:
-        if not module.is_posted:
-            module_progress[module.id] = 0
-            continue
-        mod_questions = questions_by_module.get(module.id, [])
-        if not mod_questions:
-            module_progress[module.id] = 0
-            continue
-        mod_subs = submissions_by_module.get(module.id, [])
-        q_ids = {q.id for q in mod_questions}
-        completed = sum(
-            1 for student in students
-            if {s.question_id for s in mod_subs if s.user_id == student.id} >= q_ids
-        )
-        module_progress[module.id] = round((completed / len(students)) * 100) if students else 0
+        progress = 0
+        if module.is_posted:
+            mod_questions = questions_by_module.get(module.id, [])
+            if mod_questions and students:
+                q_ids = {q.id for q in mod_questions}
+                mod_subs = submissions_by_module.get(module.id, [])
+                completed = sum(
+                    1 for student in students
+                    if {s.question_id for s in mod_subs if s.user_id == student.id} >= q_ids
+                )
+                progress = round((completed / len(students)) * 100)
 
-    # Student grades
-    student_grades = {}
+        module_data.append({
+            "id": module.id,
+            "module_name": module.module_name,
+            "custom_module_name": getattr(module, 'custom_module_name', None),
+            "module_description": module.module_description,
+            "module_order": module.module_order,
+            "is_posted": module.is_posted,
+            "youtube_link": module.youtube_link,
+            "due_date": module.due_date.isoformat() if module.due_date else None,
+            "progress": progress,
+        })
+
+    # Student data with grades
+    student_data = []
     for student in students:
         overdue_count = 0
         total_modules_with_grades = 0
@@ -510,7 +479,6 @@ def teacher_dashboard_grades(request, course_id):
                     overdue_count += 1
 
             if module.due_date:
-                from datetime import date as date_cls
                 due = module.due_date if isinstance(module.due_date, date_cls) else module.due_date.date()
                 if due < date_cls.today():
                     mod_questions = questions_by_module.get(module.id, [])
@@ -525,11 +493,24 @@ def teacher_dashboard_grades(request, course_id):
                 total_modules_with_grades += 1
 
         overall = round(total_pct / total_modules_with_grades) if total_modules_with_grades > 0 else 0
-        student_grades[student.id] = {"grade": overall, "overdue": overdue_count}
+
+        student_data.append({
+            "id": student.id, "email": student.email,
+            "first_name": student.first_name, "last_name": student.last_name,
+            "isStudent": student.isStudent,
+            "grade": overall, "overdue": overdue_count,
+        })
+
+    teacher_data = [{
+        "id": t.id, "email": t.email,
+        "first_name": t.first_name, "last_name": t.last_name,
+        "isStudent": t.isStudent,
+    } for t in teachers]
 
     return Response({
-        "module_progress": module_progress,
-        "student_grades": student_grades,
+        "modules": module_data,
+        "students": student_data,
+        "teachers": teacher_data,
     })
 
 

@@ -26,7 +26,7 @@ from core.serializers import CustomTokenObtainPairSerializer
 from core.views import (
     CourseViewSet, ModuleViewSet, QuestionViewSet, SubmissionViewSet,
     AnnouncementViewSet, ResourceViewSet, register, invite_teacher, change_password, reset_user_password,
-    student_dashboard, teacher_dashboard, teacher_dashboard_grades
+    student_dashboard, teacher_dashboard
 )
 
 # Create router and register viewsets
@@ -52,7 +52,6 @@ urlpatterns = [
     path("api/reset-user-password/", reset_user_password, name="reset_user_password"),
     path("api/dashboard/<int:course_id>/", student_dashboard, name="student_dashboard"),
     path("api/teacher-dashboard/<int:course_id>/", teacher_dashboard, name="teacher_dashboard"),
-    path("api/teacher-dashboard/<int:course_id>/grades/", teacher_dashboard_grades, name="teacher_dashboard_grades"),
     # Include router URLs (provides all ViewSet endpoints)
     path('api/', include(router.urls)),
 ]

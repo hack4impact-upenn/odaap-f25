@@ -16,7 +16,6 @@ const TeacherMain: React.FC = () => {
   const [moduleProgress, setModuleProgress] = useState<Record<number, number>>({});
   const [studentGrades, setStudentGrades] = useState<Record<number, { grade: number; overdue: number }>>({});
   const [loading, setLoading] = useState(true);
-  const [gradesLoading, setGradesLoading] = useState(true);
   const [resetPasswordUserId, setResetPasswordUserId] = useState<number | null>(null);
   const [resetPasswordName, setResetPasswordName] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
@@ -37,39 +36,28 @@ const TeacherMain: React.FC = () => {
 
     try {
       setLoading(true);
-      setGradesLoading(true);
-
-      // Phase 1: Fast load — modules, students, teachers
       const dashboard = await dashboardAPI.getTeacherDashboard(selectedCourse.id);
-      setModules(dashboard.modules.sort((a: Module, b: Module) => a.module_order - b.module_order));
+
+      const courseModules = dashboard.modules as Array<Module & { progress: number }>;
+      setModules(courseModules.sort((a: Module, b: Module) => a.module_order - b.module_order));
       setStudents(dashboard.students);
       setTeachers(dashboard.teachers);
-      setLoading(false);
 
-      // Phase 2: Async load — grades and progress (page is already visible)
-      try {
-        const grades = await dashboardAPI.getTeacherDashboardGrades(selectedCourse.id);
-
-        const progressMap: Record<number, number> = {};
-        for (const [modId, progress] of Object.entries(grades.module_progress)) {
-          progressMap[Number(modId)] = progress as number;
-        }
-        setModuleProgress(progressMap);
-
-        const gradesMap: Record<number, { grade: number; overdue: number }> = {};
-        for (const [studentId, data] of Object.entries(grades.student_grades)) {
-          gradesMap[Number(studentId)] = data as { grade: number; overdue: number };
-        }
-        setStudentGrades(gradesMap);
-      } catch (error) {
-        console.error('Error loading grades:', error);
-      } finally {
-        setGradesLoading(false);
+      const progressMap: Record<number, number> = {};
+      for (const m of courseModules) {
+        progressMap[m.id] = (m as any).progress ?? 0;
       }
+      setModuleProgress(progressMap);
+
+      const gradesMap: Record<number, { grade: number; overdue: number }> = {};
+      for (const s of dashboard.students) {
+        gradesMap[s.id] = { grade: (s as any).grade ?? 0, overdue: (s as any).overdue ?? 0 };
+      }
+      setStudentGrades(gradesMap);
     } catch (error) {
       console.error('Error loading data:', error);
+    } finally {
       setLoading(false);
-      setGradesLoading(false);
     }
   };
 
@@ -156,7 +144,7 @@ const TeacherMain: React.FC = () => {
                     <div key={module.id} className="module-progress-item">
                       <div className="module-progress-header">
                         <span className="module-name">{moduleDisplayTitle(module)}</span>
-                        <span className="progress-percentage">{gradesLoading ? '...' : `${progress}%`}</span>
+                        <span className="progress-percentage">{progress}%</span>
                       </div>
                       <div className="progress-bar-container">
                         <div 
@@ -185,21 +173,15 @@ const TeacherMain: React.FC = () => {
                         </p>
                       </div>
                       <div className="student-stats">
-                        {gradesLoading ? (
-                          <span className="grade">Loading grades...</span>
-                        ) : (
-                          <>
-                            <span className="grade">
-                              Overall Grade: {studentData.grade}%{' '}
-                              <span className="grade-weighting-note">(equal weight per module)</span>
-                            </span>
-                            <span className={`status ${studentData.overdue > 0 ? 'overdue' : 'no-overdue'}`}>
-                              {studentData.overdue > 0
-                                ? `${studentData.overdue} Overdue Assignment${studentData.overdue !== 1 ? 's' : ''}`
-                                : 'No Overdue Assignments'}
-                            </span>
-                          </>
-                        )}
+                        <span className="grade">
+                          Overall Grade: {studentData.grade}%{' '}
+                          <span className="grade-weighting-note">(equal weight per module)</span>
+                        </span>
+                        <span className={`status ${studentData.overdue > 0 ? 'overdue' : 'no-overdue'}`}>
+                          {studentData.overdue > 0
+                            ? `${studentData.overdue} Overdue Assignment${studentData.overdue !== 1 ? 's' : ''}`
+                            : 'No Overdue Assignments'}
+                        </span>
                       </div>
                       <button
                         className="reset-password-btn"

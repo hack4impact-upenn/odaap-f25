@@ -385,10 +385,6 @@ export const dashboardAPI = {
     const response = await api.get(`/teacher-dashboard/${courseId}/`);
     return response.data;
   },
-  getTeacherDashboardGrades: async (courseId: number) => {
-    const response = await api.get(`/teacher-dashboard/${courseId}/grades/`);
-    return response.data;
-  },
 };
 
 export default api;
