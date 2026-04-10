@@ -4,7 +4,8 @@ import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { useCourse } from '../contexts/CourseContext';
 import { courseAPI, moduleAPI, submissionAPI, questionAPI, authAPI } from '../services/api';
-import type { Module, Submission, User } from '../types';
+import { moduleDisplayTitle, type Module, type Submission, type User } from '../types';
+import { equalModuleOverallPercent } from '../utils/grades';
 import './TeacherMain.css';
 
 const TeacherMain: React.FC = () => {
@@ -91,53 +92,42 @@ const TeacherMain: React.FC = () => {
         : 0;
     }
     
-    // Calculate student grades and overdue assignments
+    // Calculate student grades (equal weight per posted module) and overdue assignments
     for (const student of courseStudents) {
-      let totalScore = 0;
-      let totalPossible = 0;
       let overdueCount = 0;
-      
+      const submissionsByModule: Record<number, Submission[]> = {};
+
       for (const module of courseModules) {
         if (!module.is_posted) continue;
-        
+
         const submissions = await submissionAPI.getAll(undefined, module.id);
-        const studentSubmissions = submissions.filter(s => s.user_id === student.id);
-        
+        const studentSubmissions = submissions.filter((s) => s.user_id === student.id);
+        submissionsByModule[module.id] = studentSubmissions;
+
         for (const submission of studentSubmissions) {
-          if (submission.grade) {
-            totalScore += submission.grade.score || 0;
-            totalPossible += submission.grade.total || 0;
-            
-            if (submission.grade.is_overdue) {
-              overdueCount++;
-            }
+          if (submission.grade?.is_overdue) {
+            overdueCount++;
           }
         }
-        
-        // Check for overdue assignments (modules with due dates that passed)
+
         if (module.due_date) {
-          // Parse date as local date to avoid timezone issues
           const datePart = module.due_date.split('T')[0];
           const [year, month, day] = datePart.split('-').map(Number);
           const dueDate = new Date(year, month - 1, day);
           const now = new Date();
-          now.setHours(0, 0, 0, 0); // Set to midnight for date comparison
-          
+          now.setHours(0, 0, 0, 0);
+
           const questions = await questionAPI.getAll(module.id);
-          const studentSubmissions = submissions.filter(s => s.user_id === student.id);
-          const uniqueQuestions = new Set(studentSubmissions.map(s => s.question_id));
-          
-          // Only count as overdue if:
-          // 1. Due date has passed (comparing dates, not times)
-          // 2. Module has questions
-          // 3. Student hasn't submitted all questions
+          const uniqueQuestions = new Set(studentSubmissions.map((s) => s.question_id));
+
           if (dueDate < now && questions.length > 0 && uniqueQuestions.size < questions.length) {
-            overdueCount += (questions.length - uniqueQuestions.size);
+            overdueCount += questions.length - uniqueQuestions.size;
           }
         }
       }
-      
-      const overallGrade = totalPossible > 0 ? Math.round((totalScore / totalPossible) * 100) : 0;
+
+      const overallPct = equalModuleOverallPercent(courseModules, submissionsByModule);
+      const overallGrade = overallPct ?? 0;
       gradesMap[student.id] = { grade: overallGrade, overdue: overdueCount };
     }
     
@@ -227,7 +217,7 @@ const TeacherMain: React.FC = () => {
                   return (
                     <div key={module.id} className="module-progress-item">
                       <div className="module-progress-header">
-                        <span className="module-name">{module.module_name}</span>
+                        <span className="module-name">{moduleDisplayTitle(module)}</span>
                         <span className="progress-percentage">{progress}%</span>
                       </div>
                       <div className="progress-bar-container">
@@ -257,7 +247,10 @@ const TeacherMain: React.FC = () => {
                         </p>
                       </div>
                       <div className="student-stats">
-                        <span className="grade">Overall Grade: {studentData.grade}%</span>
+                        <span className="grade">
+                          Overall Grade: {studentData.grade}%{' '}
+                          <span className="grade-weighting-note">(equal weight per module)</span>
+                        </span>
                         <span className={`status ${studentData.overdue > 0 ? 'overdue' : 'no-overdue'}`}>
                           {studentData.overdue > 0 
                             ? `${studentData.overdue} Overdue Assignment${studentData.overdue !== 1 ? 's' : ''}`
@@ -287,8 +280,22 @@ const TeacherMain: React.FC = () => {
               <div className="teachers-list">
                 {teachers.map((teacher) => (
                   <div key={teacher.id} className="teacher-item">
-                    <h4 className="teacher-name">{teacher.first_name} {teacher.last_name}</h4>
-                    <p className="teacher-email">📧 {teacher.email}</p>
+                    <div className="teacher-info">
+                      <h4 className="teacher-name">{teacher.first_name} {teacher.last_name}</h4>
+                      <p className="teacher-email">📧 {teacher.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="reset-password-btn"
+                      onClick={() => {
+                        setResetPasswordUserId(teacher.id);
+                        setResetPasswordName(`${teacher.first_name} ${teacher.last_name}`);
+                        setResetNewPassword('');
+                      }}
+                      title={teacher.id === user?.id ? 'Set a new password for your account' : 'Reset password'}
+                    >
+                      🔑 Reset Password
+                    </button>
                   </div>
                 ))}
               </div>

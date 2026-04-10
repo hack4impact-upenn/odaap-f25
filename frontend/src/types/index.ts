@@ -25,12 +25,29 @@ export interface Module {
   course_id: number;
   course_name: string;
   module_name: string;
+  /** API: formatted title (no duplicate 'Module N -' if already in module_name) */
+  display_title?: string;
   module_description?: string;
   youtube_link?: string;
   module_order: number;
   score_total: number;
   is_posted: boolean;
   due_date?: string;
+}
+
+/** Same rules as backend ModuleSerializer.get_display_title (avoids "Module 3 - Module 3 - …"). */
+export function buildModuleDisplayTitle(moduleOrder: number, moduleName: string): string {
+  const name = (moduleName || '').trim();
+  if (!name) return `Module ${moduleOrder}`;
+  const prefix = `Module ${moduleOrder} - `;
+  const lower = name.toLowerCase();
+  if (lower.startsWith(prefix.toLowerCase())) return name;
+  if (lower === `module ${moduleOrder}`.toLowerCase()) return name;
+  return `${prefix}${name}`;
+}
+
+export function moduleDisplayTitle(m: Module): string {
+  return buildModuleDisplayTitle(m.module_order, m.module_name);
 }
 
 export interface Question {
@@ -97,6 +114,8 @@ export interface Announcement {
 export interface ResourceLink {
   label: string;
   url: string;
+  /** Set when the link points to an uploaded PDF */
+  kind?: 'url' | 'pdf';
 }
 
 export interface Resource {

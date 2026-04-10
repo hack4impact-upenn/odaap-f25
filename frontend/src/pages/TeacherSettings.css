@@ -13,7 +13,6 @@
 }
 
 .zoom-card {
-  grid-column: 1 / -1;
   min-width: 0;
 }
 
@@ -36,6 +35,7 @@
   gap: 8px;
   width: 100%;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 .zoom-form label {
@@ -198,7 +198,6 @@
 
 .create-course-card {
   margin-bottom: 24px;
-  grid-column: 1 / -1;
 }
 
 .create-course-description {
@@ -301,8 +300,8 @@
 }
 
 .settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 24px;
 }
 
@@ -370,7 +369,6 @@
 
 
 .ceu-card {
-  grid-column: 1 / -1;
 }
 
 .ceu-description {
@@ -429,7 +427,6 @@
 }
 
 .people-card {
-  grid-column: 1 / -1;
 }
 
 .people-subsection {
@@ -640,7 +637,6 @@
 }
 
 .resources-card {
-  grid-column: 1 / -1;
 }
 
 .resources-description {
@@ -730,6 +726,15 @@
 
 .resource-link-pill:hover {
   background: #c5cae9;
+}
+
+.resource-link-pill-pdf {
+  background: #ffebee;
+  color: #b71c1c;
+}
+
+.resource-link-pill-pdf:hover {
+  background: #ffcdd2;
 }
 
 .add-resource-button {
@@ -856,6 +861,54 @@
   color: #9c27b0;
 }
 
+.resource-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.resource-upload-pdf-btn {
+  padding: 6px 12px;
+  background: #fafafa;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.resource-upload-pdf-btn:hover:not(:disabled) {
+  border-color: #9c27b0;
+  color: #7b1fa2;
+}
+
+.resource-upload-pdf-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.resource-pdf-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.resource-pdf-badge {
+  flex: 2;
+  min-width: 0;
+  font-size: 13px;
+  color: #555;
+  padding: 8px 10px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
 .resource-form-actions {
   display: flex;
   gap: 12px;
@@ -898,7 +951,6 @@
 }
 
 .danger-card {
-  grid-column: 1 / -1;
 }
 
 .danger-description {

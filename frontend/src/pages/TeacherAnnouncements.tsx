@@ -7,11 +7,14 @@ import { announcementAPI } from '../services/api';
 import type { Announcement } from '../types';
 import './TeacherAnnouncements.css';
 
+const ANNOUNCEMENTS_PER_PAGE = 6;
+
 const TeacherAnnouncements: React.FC = () => {
   const { user } = useAuth();
   const { selectedCourse, loading: courseLoading } = useCourse();
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementPage, setAnnouncementPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
@@ -26,6 +29,28 @@ const TeacherAnnouncements: React.FC = () => {
       setLoading(false);
     }
   }, [selectedCourse, courseLoading]);
+
+  const announcementTotalPages = Math.max(
+    1,
+    Math.ceil(announcements.length / ANNOUNCEMENTS_PER_PAGE)
+  );
+
+  useEffect(() => {
+    setAnnouncementPage(1);
+  }, [selectedCourse?.id]);
+
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(announcements.length / ANNOUNCEMENTS_PER_PAGE));
+    setAnnouncementPage((p) => Math.min(p, tp));
+  }, [announcements]);
+
+  const paginatedAnnouncements =
+    announcements.length === 0
+      ? []
+      : announcements.slice(
+          (announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE,
+          announcementPage * ANNOUNCEMENTS_PER_PAGE
+        );
 
   const loadAnnouncements = async () => {
     if (!selectedCourse) return;
@@ -234,7 +259,7 @@ const TeacherAnnouncements: React.FC = () => {
               <p>No announcements yet. Create one to get started!</p>
             </div>
           ) : (
-            announcements.map((announcement) => (
+            paginatedAnnouncements.map((announcement) => (
               <div key={announcement.id} className="announcement-card">
                 <div className="announcement-content">
                   <h3>{announcement.title}</h3>
@@ -262,6 +287,37 @@ const TeacherAnnouncements: React.FC = () => {
             ))
           )}
         </div>
+        {!loading && announcements.length > ANNOUNCEMENTS_PER_PAGE && (
+          <div className="announcements-pagination" role="navigation" aria-label="Announcements pages">
+            <button
+              type="button"
+              className="announcements-page-btn"
+              disabled={announcementPage <= 1}
+              onClick={() => setAnnouncementPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <span className="announcements-page-info">
+              Page {announcementPage} of {announcementTotalPages}
+              <span className="announcements-page-range">
+                {' '}
+                ({(announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE + 1}–
+                {Math.min(announcementPage * ANNOUNCEMENTS_PER_PAGE, announcements.length)} of{' '}
+                {announcements.length})
+              </span>
+            </span>
+            <button
+              type="button"
+              className="announcements-page-btn"
+              disabled={announcementPage >= announcementTotalPages}
+              onClick={() =>
+                setAnnouncementPage((p) => Math.min(announcementTotalPages, p + 1))
+              }
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

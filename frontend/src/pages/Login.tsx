@@ -32,14 +32,13 @@ const Login: React.FC = () => {
       }
       navigate('/');
     } catch (err: any) {
-      // Handle login errors specifically
       if (isLogin && err.response?.status === 400) {
         setError('password and username incorrect');
       } else {
-        const errorMessage = err.response?.data?.error || 
-                            err.response?.data?.detail || 
+        const errorMessage = err.response?.data?.error ||
+                            err.response?.data?.detail ||
                             err.response?.data?.non_field_errors?.[0] ||
-                            err.message || 
+                            err.message ||
                             'An error occurred. Please try again.';
         setError(errorMessage);
       }
@@ -55,7 +54,6 @@ const Login: React.FC = () => {
     }));
   };
 
-  // Reset form when switching between login/register
   const handleTabSwitch = (loginMode: boolean) => {
     setIsLogin(loginMode);
     if (loginMode) {
@@ -87,12 +85,14 @@ const Login: React.FC = () => {
 
       <div className="login-tabs">
         <button
+          type="button"
           className={`tab ${isLogin ? 'active' : ''}`}
           onClick={() => handleTabSwitch(true)}
         >
           Login
         </button>
         <button
+          type="button"
           className={`tab ${!isLogin ? 'active' : ''}`}
           onClick={() => handleTabSwitch(false)}
         >
@@ -189,4 +189,3 @@ const Login: React.FC = () => {
 };
 
 export default Login;
-

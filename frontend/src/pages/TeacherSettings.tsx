@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +10,6 @@ import './TeacherSettings.css';
 const TeacherSettings: React.FC = () => {
   const { selectedCourse, courses, setSelectedCourse, loadCourses } = useCourse();
   const [zoomLink, setZoomLink] = useState('');
-  const [meetingSchedule, setMeetingSchedule] = useState('Every Friday, Saturday (2:00 - 3:00 pm)');
   const [ceuCreditAppLink, setCeuCreditAppLink] = useState('');
   const [ceuAct48Link, setCeuAct48Link] = useState('');
   const [ceuProgramEvalLink, setCeuProgramEvalLink] = useState('');
@@ -32,6 +31,8 @@ const TeacherSettings: React.FC = () => {
   const [resourceTitle, setResourceTitle] = useState('');
   const [resourceDescription, setResourceDescription] = useState('');
   const [resourceLinks, setResourceLinks] = useState<ResourceLink[]>([{ label: '', url: '' }]);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const resourcePdfInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -67,7 +68,7 @@ const TeacherSettings: React.FC = () => {
 
     try {
       await courseAPI.updateZoomLink(selectedCourse.id, zoomLink);
-      alert('Zoom link updated successfully!');
+      alert('Zoom settings updated successfully!');
       // Reload courses to get updated data
       await loadCourses();
     } catch (error: any) {
@@ -167,6 +168,27 @@ const TeacherSettings: React.FC = () => {
 
   const handleResourceLinkChange = (index: number, field: 'label' | 'url', value: string) => {
     setResourceLinks(prev => prev.map((link, i) => i === index ? { ...link, [field]: value } : link));
+  };
+
+  const handleResourcePdfFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !selectedCourse) return;
+    if (file.type && file.type !== 'application/pdf') {
+      alert('Please choose a PDF file.');
+      return;
+    }
+    setPdfUploading(true);
+    try {
+      const { url, filename } = await resourceAPI.uploadPdf(file, selectedCourse.id);
+      const baseLabel = filename.replace(/\.pdf$/i, '').trim() || filename;
+      setResourceLinks(prev => [...prev, { label: baseLabel, url, kind: 'pdf' }]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      alert(msg);
+    } finally {
+      setPdfUploading(false);
+    }
   };
 
   const handleSaveResource = async () => {
@@ -353,7 +375,7 @@ const TeacherSettings: React.FC = () => {
         {showCreateCourse && (
           <div className="settings-card create-course-card">
             <h2>➕ Create New Course</h2>
-            <p className="create-course-description">Create a new course to start adding modules and content. Optionally copy modules and questions from an existing course.</p>
+            <p className="create-course-description">Create a new course to start adding modules and content. Optionally copy modules, questions, and resources from an existing course.</p>
             <div className="create-course-form">
               <div className="form-group">
                 <label>Course Name *</label>
@@ -392,7 +414,7 @@ const TeacherSettings: React.FC = () => {
                   </select>
                   {sourceCourseId && (
                     <small className="copy-note">
-                      Modules and questions will be copied. Due dates will be removed and modules will not be posted.
+                      Modules, questions, and resources will be copied. Due dates will be removed and modules will not be posted.
                     </small>
                   )}
                 </div>
@@ -529,35 +551,32 @@ const TeacherSettings: React.FC = () => {
             </div>
           </div>
 
-      <div className="settings-card zoom-card">
-      <h2>🎥 Recurring Zoom Link</h2>
-      <p className="zoom-description">
-        Set up a recurring Zoom link for students to join class.
-      </p>
-
-      <div className="zoom-form">
-        <div className="form-group">
-          <label htmlFor="zoom-link">Zoom Meeting Link</label>
-          <div className="zoom-link-row">
-            <input
-              id="zoom-link"
-              type="text"
-              value={zoomLink}
-              onChange={(e) => setZoomLink(e.target.value)}
-              placeholder="https://zoom.us/j/..."
-            />
-            <button className="update-zoom-button" onClick={handleUpdateZoom}>
-              Update Zoom
-            </button>
+          <div className="settings-card zoom-card">
+            <h2>🎥 Recurring Zoom Link</h2>
+            <p className="zoom-description">Set up a recurring Zoom link for students to join class.</p>
+            <div className="zoom-form">
+              <div className="form-group">
+                <label htmlFor="zoom-link">Zoom Meeting Link</label>
+                <div className="zoom-link-row">
+                  <input
+                    id="zoom-link"
+                    type="text"
+                    value={zoomLink}
+                    onChange={(e) => setZoomLink(e.target.value)}
+                    placeholder="https://zoom.us/j/..."
+                  />
+                  <button type="button" className="update-zoom-button" onClick={handleUpdateZoom}>
+                    Update
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-  </div>
                 
 
           <div className="settings-card resources-card">
             <h2>📚 Student Resources</h2>
-            <p className="resources-description">Add resource sections visible to students. Each section can have a title, description, and links.</p>
+            <p className="resources-description">Add resource sections visible to students. Each section can have a title, description, web links, and PDF uploads.</p>
 
             {resources.length > 0 && (
               <div className="resources-list">
@@ -578,8 +597,14 @@ const TeacherSettings: React.FC = () => {
                     {resource.links.length > 0 && (
                       <div className="resource-item-links">
                         {resource.links.map((link, i) => (
-                          <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="resource-link-pill">
-                            {link.label}
+                          <a
+                            key={i}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`resource-link-pill ${link.kind === 'pdf' ? 'resource-link-pill-pdf' : ''}`}
+                          >
+                            {link.kind === 'pdf' ? '📄 ' : ''}{link.label}
                           </a>
                         ))}
                       </div>
@@ -614,7 +639,15 @@ const TeacherSettings: React.FC = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Links</label>
+                  <label>Links &amp; PDFs</label>
+                  <input
+                    ref={resourcePdfInputRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="resource-pdf-input-hidden"
+                    onChange={handleResourcePdfFileChange}
+                    aria-hidden
+                  />
                   <div className="resource-links-editor">
                     {resourceLinks.map((link, index) => (
                       <div key={index} className="resource-link-row">
@@ -622,26 +655,46 @@ const TeacherSettings: React.FC = () => {
                           type="text"
                           value={link.label}
                           onChange={(e) => handleResourceLinkChange(index, 'label', e.target.value)}
-                          placeholder="Link label"
+                          placeholder={link.kind === 'pdf' ? 'PDF label' : 'Link label'}
                           className="resource-link-label-input"
                         />
-                        <input
-                          type="text"
-                          value={link.url}
-                          onChange={(e) => handleResourceLinkChange(index, 'url', e.target.value)}
-                          placeholder="https://..."
-                          className="resource-link-url-input"
-                        />
+                        {link.kind === 'pdf' ? (
+                          <span className="resource-pdf-badge" title={link.url}>
+                            PDF · opens in new tab
+                          </span>
+                        ) : (
+                          <input
+                            type="text"
+                            value={link.url}
+                            onChange={(e) => handleResourceLinkChange(index, 'url', e.target.value)}
+                            placeholder="https://..."
+                            className="resource-link-url-input"
+                          />
+                        )}
                         {resourceLinks.length > 1 && (
-                          <button className="resource-link-remove" onClick={() => handleRemoveResourceLink(index)}>
+                          <button
+                            type="button"
+                            className="resource-link-remove"
+                            onClick={() => handleRemoveResourceLink(index)}
+                          >
                             ×
                           </button>
                         )}
                       </div>
                     ))}
-                    <button className="resource-add-link-btn" onClick={handleAddResourceLink}>
-                      + Add another link
-                    </button>
+                    <div className="resource-link-actions">
+                      <button type="button" className="resource-add-link-btn" onClick={handleAddResourceLink}>
+                        + Add link
+                      </button>
+                      <button
+                        type="button"
+                        className="resource-upload-pdf-btn"
+                        onClick={() => resourcePdfInputRef.current?.click()}
+                        disabled={!selectedCourse || pdfUploading}
+                      >
+                        {pdfUploading ? 'Uploading…' : '+ Upload PDF'}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="resource-form-actions">

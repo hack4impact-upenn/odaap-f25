@@ -3,8 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { courseAPI, submissionAPI, moduleAPI, announcementAPI } from '../services/api';
-import type { Course, Module, Submission, Announcement } from '../types';
+import {
+  moduleDisplayTitle,
+  type Course,
+  type Module,
+  type Submission,
+  type Announcement,
+} from '../types';
+import { equalModuleOverallPercent } from '../utils/grades';
 import './StudentMain.css';
+
+const ANNOUNCEMENTS_PER_PAGE = 6;
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return 'TBD';
@@ -25,6 +34,8 @@ const StudentMain: React.FC = () => {
   const [moduleQuestions, setModuleQuestions] = useState<Record<number, number>>({}); // module_id -> question_count
   const [moduleAccessibility, setModuleAccessibility] = useState<Record<number, { is_accessible: boolean; is_completed: boolean }>>({});
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementPage, setAnnouncementPage] = useState(1);
+  const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,6 +43,24 @@ const StudentMain: React.FC = () => {
       loadData();
     }
   }, [user]);
+
+  const announcementTotalPages = Math.max(
+    1,
+    Math.ceil(announcements.length / ANNOUNCEMENTS_PER_PAGE)
+  );
+
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(announcements.length / ANNOUNCEMENTS_PER_PAGE));
+    setAnnouncementPage((p) => Math.min(p, tp));
+  }, [announcements]);
+
+  const paginatedAnnouncements =
+    announcements.length === 0
+      ? []
+      : announcements.slice(
+          (announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE,
+          announcementPage * ANNOUNCEMENTS_PER_PAGE
+        );
 
   const loadData = async () => {
     try {
@@ -201,7 +230,8 @@ const StudentMain: React.FC = () => {
   }
 
   const currentCourse = courses[0]; // Use first course for now
-  
+  const overallCourseGrade = equalModuleOverallPercent(modules, submissions);
+
   // Get upcoming assignments: modules that are posted and not fully completed
   const upcomingModules = modules.filter(m => {
     if (!m.is_posted) return false;
@@ -225,6 +255,22 @@ const StudentMain: React.FC = () => {
       
       <div className="student-content">
         <h2 className="term-title">{currentCourse?.course_name || 'Course'}</h2>
+        {modules.length > 0 && (
+          <p className="student-overall-grade" aria-live="polite">
+            {overallCourseGrade !== null
+              ? `Overall Grade: ${overallCourseGrade}%`
+              : 'Overall Grade: N/A'}
+          </p>
+        )}
+
+        <nav className="student-nav" aria-label="Course sections">
+          <button type="button" className="active" aria-current="page">
+            📋 Dashboard
+          </button>
+          <button type="button" onClick={() => navigate('/student/resources')}>
+            📚 Resources
+          </button>
+        </nav>
         
         {/* Top Layer: Announcements (full width) */}
         <div className="announcements-section">
@@ -240,23 +286,79 @@ const StudentMain: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                announcements.map((announcement) => (
-                  <div key={announcement.id} className="announcement-item">
-                    <div className="announcement-indicator"></div>
-                    <div className="announcement-content">
-                      <h4 className="announcement-title">{announcement.title}</h4>
-                      <p className="announcement-description">{announcement.content}</p>
-                      <div className="announcement-meta">
-                        <span className="announcement-teacher">By {announcement.created_by_name}</span>
-                        <span className="announcement-date">
-                          {formatDate(announcement.created_at)}
-                        </span>
+                paginatedAnnouncements.map((announcement) => {
+                  const isLong = announcement.content.length > 120;
+                  const isExpanded = expandedAnnouncements.has(announcement.id);
+                  return (
+                    <div key={announcement.id} className="announcement-item">
+                      <div className="announcement-indicator"></div>
+                      <div className="announcement-content">
+                        <h4 className="announcement-title">{announcement.title}</h4>
+                        <p className={`announcement-description ${isLong && !isExpanded ? 'truncated' : ''}`}>
+                          {announcement.content}
+                        </p>
+                        {isLong && (
+                          <button
+                            type="button"
+                            className="read-more-btn"
+                            onClick={() =>
+                              setExpandedAnnouncements((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(announcement.id)) {
+                                  next.delete(announcement.id);
+                                } else {
+                                  next.add(announcement.id);
+                                }
+                                return next;
+                              })
+                            }
+                          >
+                            {isExpanded ? 'Show less' : 'Read more'}
+                          </button>
+                        )}
+                        <div className="announcement-meta">
+                          <span className="announcement-teacher">By {announcement.created_by_name}</span>
+                          <span className="announcement-date">
+                            {formatDate(announcement.created_at)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
+            {announcements.length > ANNOUNCEMENTS_PER_PAGE && (
+              <div className="announcements-pagination" role="navigation" aria-label="Announcements pages">
+                <button
+                  type="button"
+                  className="announcements-page-btn"
+                  disabled={announcementPage <= 1}
+                  onClick={() => setAnnouncementPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </button>
+                <span className="announcements-page-info">
+                  Page {announcementPage} of {announcementTotalPages}
+                  <span className="announcements-page-range">
+                    {' '}
+                    ({(announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE + 1}–
+                    {Math.min(announcementPage * ANNOUNCEMENTS_PER_PAGE, announcements.length)} of{' '}
+                    {announcements.length})
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="announcements-page-btn"
+                  disabled={announcementPage >= announcementTotalPages}
+                  onClick={() =>
+                    setAnnouncementPage((p) => Math.min(announcementTotalPages, p + 1))
+                  }
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -266,7 +368,6 @@ const StudentMain: React.FC = () => {
           {currentCourse && (
             <div className="card zoom-card">
               <h3 className="card-title">Weekly Zoom Meeting Link</h3>
-              <p className="zoom-schedule">Every Friday, Saturday (2:00 - 3:00 pm)</p>
               {currentCourse.zoom_link ? (
                 <button 
                   className="zoom-button"
@@ -298,7 +399,7 @@ const StudentMain: React.FC = () => {
               <>
                 <p className="assignment-count">{upcomingCount} assignment{upcomingCount !== 1 ? 's' : ''} to complete</p>
                 <div className="assignments-list">
-                  {upcomingModules.slice(0, 3).map((module) => (
+                  {upcomingModules.map((module) => (
                     <div 
                       key={module.id}
                       className="assignment-item clickable"
@@ -312,7 +413,7 @@ const StudentMain: React.FC = () => {
                         }
                       }}
                     >
-                      <h4 className="assignment-name">{module.module_name}</h4>
+                      <h4 className="assignment-name">{moduleDisplayTitle(module)}</h4>
                       {module.module_description && (
                         <p className="assignment-description">{module.module_description}</p>
                       )}
@@ -355,7 +456,7 @@ const StudentMain: React.FC = () => {
                       )}
                     </div>
                     <div className="module-info">
-                      <h3 className="module-name">{module.module_name}</h3>
+                      <h3 className="module-name">{moduleDisplayTitle(module)}</h3>
                       {module.module_description && (
                         <p className="module-description">{module.module_description}</p>
                       )}
@@ -418,21 +519,6 @@ const StudentMain: React.FC = () => {
               Complete All Modules First
               <span className="icon-lock">🔒</span>
             </button>
-          </div>
-        </div>
-
-        {/* Resources Link */}
-        <div className="resources-nav-section">
-          <div
-            className="card resources-nav-card"
-            onClick={() => navigate('/student/resources')}
-          >
-            <span className="resources-nav-icon">📚</span>
-            <div>
-              <h3 className="card-title">Resources</h3>
-              <p className="resources-nav-description">View course materials, links, and helpful resources</p>
-            </div>
-            <span className="resources-nav-arrow">→</span>
           </div>
         </div>
 

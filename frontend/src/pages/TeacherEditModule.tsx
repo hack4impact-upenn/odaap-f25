@@ -462,16 +462,31 @@ const TeacherEditModule: React.FC = () => {
               
               return (
                 <div key={question.id} className="question-edit-card" data-question-id={question.id}>
+                  <button
+                    type="button"
+                    className="delete-question-btn"
+                    onClick={() => handleDeleteQuestion(question.id)}
+                    disabled={moduleData.is_posted}
+                    title={moduleData.is_posted ? "Cannot remove questions from posted modules" : "Remove question"}
+                    aria-label="Remove question"
+                  >
+                    <svg
+                      className="delete-question-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden
+                    >
+                      <path
+                        d="M6 6l12 12M18 6L6 18"
+                        stroke="currentColor"
+                        strokeWidth={2.75}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
                   <div className="question-header">
                     <div className="question-number-circle">{index + 1}</div>
-                    <button 
-                      className="delete-question-btn"
-                      onClick={() => handleDeleteQuestion(question.id)}
-                      disabled={moduleData.is_posted}
-                      title={moduleData.is_posted ? "Cannot delete questions from posted modules" : ""}
-                    >
-                      🗑️
-                    </button>
                   </div>
 
                   <div className="form-group">
@@ -506,8 +521,14 @@ const TeacherEditModule: React.FC = () => {
                           checked={editingQuestion.question_type === 'video'}
                           onChange={() => handleQuestionChange(question.id, 'question_type', 'video')}
                         />
-                        📁 Field Assignment/File Attachment
+                        📁 Field Assignment / file or YouTube
                       </label>
+                      {editingQuestion.question_type === 'video' && (
+                        <p className="field-assignment-type-hint">
+                          Students submit either an uploaded file or a YouTube link (one or the other), not written or
+                          audio.
+                        </p>
+                      )}
                       <label>
                         <input 
                           type="radio" 
@@ -523,53 +544,74 @@ const TeacherEditModule: React.FC = () => {
 
                   {editingQuestion.question_type === 'multiple_choice' && (
                     <div className="mcq-options-section">
-                      <label>Multiple Choice Options</label>
-                      {(editingQuestion.mcq_options || []).map((option, optIndex) => {
-                        const currentCorrectAnswers = editingQuestion.correct_answers || [];
-                        const isCorrect = option && currentCorrectAnswers.includes(option);
+                      <div className="mcq-options-intro">
+                        <span className="mcq-options-title">Multiple choice options</span>
                         
-                        return (
-                          <div key={optIndex} className="option-item">
-                            <input 
-                              type="radio" 
-                              name={`correct-${question.id}`}
-                              checked={!!isCorrect}
-                              onChange={() => {
-                                // Set this option as the only correct answer
-                                const correctAnswers = option ? [option] : [];
-                                handleQuestionChange(question.id, 'correct_answers', correctAnswers);
-                              }}
-                            />
-                            <input
-                              type="text"
-                              value={option}
-                              onChange={(e) => {
-                                const newValue = e.target.value;
-                                handleMcqOptionChange(question.id, optIndex, newValue);
-                                // If this was the correct answer, update it
-                                if (isCorrect && newValue) {
-                                  handleQuestionChange(question.id, 'correct_answers', [newValue]);
-                                }
-                              }}
-                              placeholder={`Option ${optIndex + 1}`}
-                            />
-                            <button 
-                              className="remove-option-btn"
-                              onClick={() => {
-                                // If removing the correct answer, clear it
-                                if (isCorrect) {
-                                  handleQuestionChange(question.id, 'correct_answers', []);
-                                }
-                                handleRemoveMcqOption(question.id, optIndex);
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        );
-                      })}
-                      <button 
-                        className="add-option-btn" 
+                      </div>
+                      <div
+                        className="mcq-options-grid"
+                        role="group"
+                        aria-label="Multiple choice answers and correct answer"
+                      >
+                        <span className="mcq-col-head mcq-col-head-correct">Correct</span>
+                        <span className="mcq-col-head mcq-col-head-text">Answer choice</span>
+                        <span className="mcq-col-head mcq-col-head-remove" aria-hidden />
+                        {(editingQuestion.mcq_options || []).map((option, optIndex) => {
+                          const currentCorrectAnswers = editingQuestion.correct_answers || [];
+                          const isCorrect = option && currentCorrectAnswers.includes(option);
+
+                          return (
+                            <React.Fragment key={optIndex}>
+                              <div className="mcq-correct-cell">
+                                <input
+                                  type="radio"
+                                  name={`correct-${question.id}`}
+                                  checked={!!isCorrect}
+                                  title="Mark this choice as the correct answer for grading"
+                                  aria-label={`Mark answer choice ${optIndex + 1} as the correct answer`}
+                                  onChange={() => {
+                                    const correctAnswers = option ? [option] : [];
+                                    handleQuestionChange(question.id, 'correct_answers', correctAnswers);
+                                  }}
+                                />
+                              </div>
+                              <div className="mcq-text-cell">
+                                <input
+                                  type="text"
+                                  value={option}
+                                  onChange={(e) => {
+                                    const newValue = e.target.value;
+                                    handleMcqOptionChange(question.id, optIndex, newValue);
+                                    if (isCorrect && newValue) {
+                                      handleQuestionChange(question.id, 'correct_answers', [newValue]);
+                                    }
+                                  }}
+                                  placeholder={`Option ${optIndex + 1}`}
+                                  aria-label={`Text for answer choice ${optIndex + 1}`}
+                                />
+                              </div>
+                              <div className="mcq-remove-cell">
+                                <button
+                                  type="button"
+                                  className="remove-option-btn"
+                                  onClick={() => {
+                                    if (isCorrect) {
+                                      handleQuestionChange(question.id, 'correct_answers', []);
+                                    }
+                                    handleRemoveMcqOption(question.id, optIndex);
+                                  }}
+                                  aria-label={`Remove option ${optIndex + 1}`}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        className="add-option-btn"
                         onClick={() => handleAddMcqOption(question.id)}
                       >
                         + Add Option

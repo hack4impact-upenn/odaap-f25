@@ -1,11 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { useAuth } from '../contexts/AuthContext';
 import { useCourse } from '../contexts/CourseContext';
 import { moduleAPI, questionAPI } from '../services/api';
-import type { Module, Question } from '../types';
+import { moduleDisplayTitle, type Module, type Question } from '../types';
 import './TeacherModules.css';
+
+function multipleChoicePostErrors(questions: Question[]): string[] {
+  const errors: string[] = [];
+  for (const q of questions) {
+    if (q.question_type !== 'multiple_choice') continue;
+    const opts = (q.mcq_options ?? []).map((o) => String(o).trim()).filter(Boolean);
+    if (opts.length === 0) {
+      errors.push(
+        `Multiple choice question #${q.question_order} has no answer choices.`
+      );
+      continue;
+    }
+    const correct = (q.correct_answers ?? []).map((c) => String(c).trim()).filter(Boolean);
+    const matchesOption = correct.some((c) => opts.includes(c));
+    if (!matchesOption) {
+      errors.push(
+        `Multiple choice question #${q.question_order} needs a correct answer selected (use Edit module).`
+      );
+    }
+  }
+  return errors;
+}
 
 const TeacherModules: React.FC = () => {
   const { selectedCourse, loading: courseLoading } = useCourse();
@@ -15,7 +36,8 @@ const TeacherModules: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showPostConfirm, setShowPostConfirm] = useState(false);
   const [moduleToPost, setModuleToPost] = useState<Module | null>(null);
-  const { user } = useAuth();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [moduleToDelete, setModuleToDelete] = useState<Module | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -78,7 +100,15 @@ const TeacherModules: React.FC = () => {
       alert('You must post all previous modules before posting this one. Students complete modules sequentially.');
       return;
     }
-    
+
+    const mcqErrors = multipleChoicePostErrors(moduleQuestions[moduleId] ?? []);
+    if (mcqErrors.length > 0) {
+      alert(
+        'Fix multiple choice questions before posting:\n\n' + mcqErrors.join('\n')
+      );
+      return;
+    }
+
     // Show confirmation modal
     setModuleToPost(module);
     setShowPostConfirm(true);
@@ -94,15 +124,61 @@ const TeacherModules: React.FC = () => {
       }
       setShowPostConfirm(false);
       setModuleToPost(null);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error posting module:', error);
-      alert('Error posting module');
+      const ax = error as { response?: { data?: { detail?: unknown; error?: string } } };
+      const d = ax.response?.data?.detail;
+      const msg =
+        Array.isArray(d) && d.length
+          ? d.join('\n')
+          : typeof d === 'string'
+            ? d
+            : ax.response?.data?.error;
+      alert(msg ? String(msg) : 'Error posting module');
     }
   };
 
   const handlePostCancel = () => {
     setShowPostConfirm(false);
     setModuleToPost(null);
+  };
+
+  const handleDeleteClick = (moduleId: number) => {
+    const mod = modules.find((m) => m.id === moduleId);
+    if (!mod || mod.is_posted) return;
+    setModuleToDelete(mod);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setModuleToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!moduleToDelete || !selectedCourse) return;
+    try {
+      await moduleAPI.delete(moduleToDelete.id);
+      setExpandedModules((prev) => {
+        const next = new Set(prev);
+        next.delete(moduleToDelete.id);
+        return next;
+      });
+      await loadModules(selectedCourse.id);
+      setShowDeleteConfirm(false);
+      setModuleToDelete(null);
+    } catch (error: unknown) {
+      console.error('Error deleting module:', error);
+      const ax = error as { response?: { data?: { detail?: unknown; error?: string } } };
+      const d = ax.response?.data?.detail;
+      const msg =
+        typeof d === 'string'
+          ? d
+          : Array.isArray(d) && d.length
+            ? d.join('\n')
+            : ax.response?.data?.error;
+      alert(msg ? String(msg) : 'Error deleting module');
+    }
   };
 
   const formatDate = (dateString?: string) => {
@@ -192,7 +268,7 @@ const TeacherModules: React.FC = () => {
                 const newModule = await moduleAPI.create({
                   course: selectedCourse.id,
                   module_name: `Module ${nextOrder}`,
-                  module_description: 'Description of the module',
+                  module_description: '',
                   module_order: nextOrder,
                   score_total: 100,
                   is_posted: false,
@@ -232,64 +308,82 @@ const TeacherModules: React.FC = () => {
               const canPost = index === 0 || modules.slice(0, index).every(m => m.is_posted);
               
               return (
-                <div key={module.id} className="module-card">
-                  <div className="module-header">
-                    <div className="module-info">
-                      <div className="module-title-row">
-                        <span className="module-order-badge">#{index + 1}</span>
-                        <h3 className="module-title">{module.module_name}</h3>
-                      </div>
-                      <p className="module-description">
-                        {module.module_description || 'Description of the module'}
-                      </p>
-                      <div className="module-meta">
-                        <span className="due-date">Due: {formatDate(module.due_date)}</span>
-                        <button 
-                          className="questions-toggle"
-                          onClick={() => toggleModuleExpansion(module.id)}
-                        >
-                          Questions ({questions.length})
-                          <span className={`toggle-arrow ${isExpanded ? 'expanded' : ''}`}>
-                            {isExpanded ? '▲' : '▼'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                    <div className="module-actions">
-                      <button 
-                        className="btn-edit"
-                        onClick={() => navigate(`/teacher/modules/${module.id}/edit`)}
-                        disabled={module.is_posted}
-                        title={module.is_posted ? "Cannot edit posted modules" : ""}
-                      >
-                        ✏️ Edit
-                      </button>
-                      {module.is_posted ? (
-                        <span className="posted-badge">Posted</span>
-                      ) : (
-                        <button 
-                          className="btn-post"
-                          onClick={() => handlePostClick(module.id)}
-                          disabled={!canPost}
-                          title={!canPost ? "You must post previous modules first" : ""}
-                        >
-                          Post to Students
-                        </button>
-                      )}
-                    </div>
+                <div
+                  key={module.id}
+                  className={`module-card ${module.is_posted ? 'module-card--posted' : 'module-card--draft'}`}
+                >
+                  <div className="module-top-row">
+                    <h3 className="module-title">{moduleDisplayTitle(module)}</h3>
+                    {module.is_posted && <span className="posted-badge">Posted</span>}
                   </div>
-                  
+
+                  {/* Description (only if filled) */}
+                  {module.module_description && (
+                    <p className="module-description">{module.module_description}</p>
+                  )}
+
+                  {/* Meta row: due date · questions toggle */}
+                  <div className="module-meta">
+                    <span className="due-date">Due: {formatDate(module.due_date)}</span>
+                    <span className="meta-separator">·</span>
+                    <button
+                      className="questions-toggle"
+                      onClick={() => toggleModuleExpansion(module.id)}
+                    >
+                      {questions.length} question{questions.length !== 1 ? 's' : ''}
+                      <span className={`toggle-arrow ${isExpanded ? 'expanded' : ''}`}>
+                        ▼
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Expanded questions */}
                   {isExpanded && questions.length > 0 && (
                     <div className="questions-list">
-                      {questions.map((question, index) => (
+                      {questions.map((question, qIdx) => (
                         <div key={question.id} className="question-item">
-                          <span className="question-number">{index + 1}.</span>
+                          <span className="question-number">{qIdx + 1}.</span>
                           <span className="question-text">{question.question_text}</span>
                           <span className="question-type">{getQuestionTypeIcon(question.question_type)}</span>
                         </div>
                       ))}
                     </div>
                   )}
+
+                  <div className="module-actions">
+                    {!module.is_posted ? (
+                      <>
+                        <button
+                          className="btn-edit"
+                          onClick={() => navigate(`/teacher/modules/${module.id}/edit`)}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          className="btn-post"
+                          onClick={() => handlePostClick(module.id)}
+                          disabled={!canPost}
+                          title={!canPost ? 'You must post previous modules first' : ''}
+                        >
+                          Post to Students
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-delete-module"
+                          onClick={() => handleDeleteClick(module.id)}
+                          title="Permanently delete this draft module"
+                        >
+                          🗑️ Delete module
+                        </button>
+                      </>
+                    ) : (
+                      <div className="module-posted-footer">
+                        <span className="posted-module-hint">
+                          Live for students — edit and delete are turned off while posted.
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -307,7 +401,7 @@ const TeacherModules: React.FC = () => {
                 Once you post this module, you will not be able to edit it.
               </p>
               <p className="confirm-question">
-                Are you sure you want to post <strong>"{moduleToPost.module_name}"</strong> to students?
+                Are you sure you want to post <strong>&quot;{moduleDisplayTitle(moduleToPost)}&quot;</strong> to students?
               </p>
             </div>
             <div className="modal-actions">
@@ -324,6 +418,28 @@ const TeacherModules: React.FC = () => {
                 className="btn-confirm"
               >
                 Post to Students
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && moduleToDelete && (
+        <div className="modal-overlay" onClick={handleDeleteCancel}>
+          <div className="modal-content post-confirm-modal delete-module-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete module?</h2>
+            <div className="post-confirm-message">
+              <p className="warning-text">
+                This permanently removes <strong>&quot;{moduleDisplayTitle(moduleToDelete)}&quot;</strong> and all of its
+                questions. This cannot be undone.
+              </p>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={handleDeleteCancel} className="btn-cancel">
+                Cancel
+              </button>
+              <button type="button" onClick={handleDeleteConfirm} className="btn-confirm-delete">
+                Delete module
               </button>
             </div>
           </div>

@@ -465,6 +465,12 @@
   font-size: 18px;
 }
 
+.graded-count-note {
+  font-size: 13px;
+  color: #999;
+  font-weight: 400;
+}
+
 .no-submission-message {
   text-align: center;
   padding: 40px;
@@ -552,6 +558,79 @@
 .mcq-option-display.selected {
   border-color: #9c27b0;
   background: #f3e5f5;
+}
+
+.mcq-option-display.answer-key {
+  border-color: #2e7d32;
+  background: #e8f5e9;
+}
+
+.mcq-option-display.selected.answer-key {
+  border-color: #2e7d32;
+  background: #c8e6c9;
+}
+
+.mcq-option-display.incorrect-selection {
+  border-color: #c62828;
+  background: #ffebee;
+}
+
+.selected-badge.selected-correct {
+  background: #2e7d32;
+}
+
+.selected-badge.selected-wrong {
+  background: #c62828;
+}
+
+.answer-key-badge {
+  padding: 4px 8px;
+  background: #2e7d32;
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mcq-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.mcq-verdict-correct {
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  color: #1b5e20;
+}
+
+.mcq-verdict-wrong {
+  background: #fff3e0;
+  border: 1px solid #ffcc80;
+  color: #5d4037;
+}
+
+.mcq-verdict-wrong strong {
+  color: #1b5e20;
+  font-weight: 600;
+}
+
+.mcq-verdict-icon {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.mcq-no-key-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+  line-height: 1.4;
 }
 
 .option-radio {
@@ -667,21 +746,32 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .grade-input-new {
-  width: 80px;
-  padding: 10px 12px;
+  width: 72px;
+  height: 40px;
+  padding: 0 8px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 16px;
   text-align: center;
   font-weight: 500;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.grade-input-new::-webkit-inner-spin-button,
+.grade-input-new::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .grade-input-new:focus {
   outline: none;
   border-color: #9c27b0;
+  box-shadow: 0 0 0 2px rgba(156, 39, 176, 0.15);
 }
 
 .grade-out-of-new {
@@ -946,4 +1036,55 @@
 
 .reset-password-cancel:hover {
   background: #f5f5f5;
+}
+
+/* Link response display in grading */
+.link-response-display {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.link-response-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.link-response-url {
+  color: #1976d2;
+  font-size: 14px;
+  word-break: break-all;
+  text-decoration: none;
+}
+
+.link-response-url:hover {
+  text-decoration: underline;
+}
+
+.field-assignment-response-display {
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.field-assignment-grade-line {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #333;
+  word-break: break-word;
+}
+
+.field-assignment-grade-line:last-child {
+  margin-bottom: 0;
+}
+
+.field-assignment-ref {
+  font-size: 13px;
+  color: #666;
 }

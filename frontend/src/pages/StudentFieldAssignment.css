@@ -133,3 +133,37 @@
   background: #45a049;
 }
 
+.field-assignment-page-hint {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #444;
+  line-height: 1.5;
+}
+
+.field-assignment-or-page {
+  margin: 16px 0;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+  font-weight: 500;
+}
+
+.field-assignment-youtube-label-page {
+  display: block;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.field-assignment-youtube-input-page {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+

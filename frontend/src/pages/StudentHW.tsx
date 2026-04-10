@@ -1,20 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { moduleAPI, questionAPI, submissionAPI } from '../services/api';
+import { moduleAPI, submissionAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { Module, Question, Submission } from '../types';
+import { moduleDisplayTitle, type Module, type Question, type Submission } from '../types';
+import {
+  parseFieldAssignmentResponse,
+  serializeFieldAssignmentPayload,
+  isYoutubeLikeUrl,
+} from '../utils/fieldAssignment';
 import './StudentHW.css';
 
 const StudentHW: React.FC = () => {
   const { moduleId } = useParams<{ moduleId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const cameFromVideo = !!(location.state as any)?.fromVideo;
   const { user } = useAuth();
   const [module, setModule] = useState<Module | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [submissions, setSubmissions] = useState<Record<number, Submission>>({});
   const [responses, setResponses] = useState<Record<number, string>>({});
-  const [responseTypes, setResponseTypes] = useState<Record<number, 'written' | 'audio'>>({});
+  const [responseTypes, setResponseTypes] = useState<Record<number, 'written' | 'audio' | 'link'>>({});
   const [audioRecordings, setAudioRecordings] = useState<Record<number, Blob | null>>({});
   const [isRecording, setIsRecording] = useState<Record<number, boolean>>({});
   const [recordingTime, setRecordingTime] = useState<Record<number, number>>({});
@@ -22,6 +29,12 @@ const StudentHW: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReviewMode, setIsReviewMode] = useState(false);
+  /** Field assignment (question_type video): file + optional YouTube */
+  const [fieldAssignmentFile, setFieldAssignmentFile] = useState<Record<number, File | null>>({});
+  const [fieldAssignmentYoutube, setFieldAssignmentYoutube] = useState<Record<number, string>>({});
+  const [fieldAssignmentSubmittedMeta, setFieldAssignmentSubmittedMeta] = useState<
+    Record<number, { fileName: string; fileUrl: string; youtubeUrl: string }>
+  >({});
 
   useEffect(() => {
     if (moduleId && user) {
@@ -47,7 +60,10 @@ const StudentHW: React.FC = () => {
   const loadModuleData = async () => {
     try {
       setLoading(true);
-      
+      setFieldAssignmentFile({});
+      setFieldAssignmentYoutube({});
+      setFieldAssignmentSubmittedMeta({});
+
       // Check module accessibility first (for students)
       if (user?.isStudent) {
         try {
@@ -68,6 +84,12 @@ const StudentHW: React.FC = () => {
       try {
         const moduleData = await moduleAPI.getById(Number(moduleId));
         setModule(moduleData);
+
+        // Always show the video page first if the module has a video link
+        if (moduleData.youtube_link && !cameFromVideo) {
+          navigate(`/student/module/${moduleId}/video`, { replace: true });
+          return;
+        }
       } catch (error: any) {
         console.error('Error loading module:', error);
         if (error.response?.status === 404) {
@@ -100,23 +122,27 @@ const StudentHW: React.FC = () => {
       }
 
       // Load existing submissions
+      let submissionsMap: Record<number, Submission> = {};
       if (user) {
         try {
           const submissionsData = await submissionAPI.getAll(undefined, Number(moduleId));
-          const submissionsMap: Record<number, Submission> = {};
           const initialResponses: Record<number, string> = {};
-          const initialTypes: Record<number, 'written' | 'audio'> = {};
+          const initialTypes: Record<number, 'written' | 'audio' | 'link'> = {};
           
           submissionsData.forEach((sub: Submission) => {
             if (sub.user_id === user.id) {
               submissionsMap[sub.question_id] = sub;
               initialResponses[sub.question_id] = sub.submission_response;
-              initialTypes[sub.question_id] = sub.submission_type as 'written' | 'audio';
-              
-              // If it's an audio submission, mark it as recorded
-              if (sub.submission_type === 'audio' && sub.submission_response) {
-                // Audio is stored as base64, so we can mark it as recorded
-                setAudioRecordings(prev => ({ ...prev, [sub.question_id]: null })); // null means we have the base64 but not the blob
+
+              if (sub.submission_type === 'audio') {
+                initialTypes[sub.question_id] = 'audio';
+                if (sub.submission_response) {
+                  setAudioRecordings(prev => ({ ...prev, [sub.question_id]: null }));
+                }
+              } else if (isUrl(sub.submission_response || '')) {
+                initialTypes[sub.question_id] = 'link';
+              } else {
+                initialTypes[sub.question_id] = 'written';
               }
             }
           });
@@ -124,9 +150,37 @@ const StudentHW: React.FC = () => {
           setSubmissions(submissionsMap);
           setResponses(initialResponses);
           setResponseTypes(initialTypes);
-          
-          // Only set review mode if ALL questions have been submitted
-          // Check if every question has a submission with a response
+
+          const faYoutube: Record<number, string> = {};
+          const faMeta: Record<number, { fileName: string; fileUrl: string; youtubeUrl: string }> = {};
+          sortedQuestions.forEach((q) => {
+            if (q.question_type !== 'video') return;
+            const sub = submissionsMap[q.id];
+            if (!sub?.submission_response?.trim()) return;
+            const p = parseFieldAssignmentResponse(sub.submission_response);
+            if (p) {
+              faYoutube[q.id] = p.youtubeUrl || '';
+              faMeta[q.id] = {
+                fileName: p.fileName || 'Uploaded file',
+                fileUrl: p.fileUrl || '',
+                youtubeUrl: p.youtubeUrl || '',
+              };
+            } else if (isUrl(sub.submission_response)) {
+              const u = sub.submission_response.trim();
+              faYoutube[q.id] = u;
+              faMeta[q.id] = { fileName: '', fileUrl: '', youtubeUrl: u };
+            } else {
+              faMeta[q.id] = {
+                fileName: 'Submitted file',
+                fileUrl: sub.submission_response,
+                youtubeUrl: '',
+              };
+            }
+          });
+          setFieldAssignmentYoutube(faYoutube);
+          setFieldAssignmentSubmittedMeta(faMeta);
+          setFieldAssignmentFile({});
+
           const allQuestionsSubmitted = sortedQuestions.length > 0 && 
             sortedQuestions.every(q => {
               const submission = submissionsMap[q.id];
@@ -135,7 +189,6 @@ const StudentHW: React.FC = () => {
           
           if (allQuestionsSubmitted) {
             setIsReviewMode(true);
-            // Disable all inputs since submissions are final
           } else {
             setIsReviewMode(false);
           }
@@ -145,17 +198,13 @@ const StudentHW: React.FC = () => {
         }
       }
 
-      // Set default response types for questions without submissions (skip multiple choice)
-      // For written/audio questions, default to written but allow switching to audio
       sortedQuestions.forEach((q) => {
-        if (!responseTypes[q.id] && q.question_type !== 'multiple_choice') {
-          // If question type is 'written', 'audio', or 'video', allow both written and audio responses
-          // Default to written for better UX
-          setResponseTypes(prev => ({
-            ...prev,
-            [q.id]: 'written'
-          }));
-        }
+        if (q.question_type === 'multiple_choice' || q.question_type === 'video') return;
+        if (submissionsMap[q.id]) return;
+        setResponseTypes((prev) => {
+          if (prev[q.id]) return prev;
+          return { ...prev, [q.id]: 'written' };
+        });
       });
     } catch (error) {
       console.error('Error loading module:', error);
@@ -169,11 +218,19 @@ const StudentHW: React.FC = () => {
     setResponses(prev => ({ ...prev, [questionId]: value }));
   };
 
-  const handleResponseTypeChange = (questionId: number, type: 'written' | 'audio') => {
+  const handleResponseTypeChange = (questionId: number, type: 'written' | 'audio' | 'link') => {
     setResponseTypes(prev => ({ ...prev, [questionId]: type }));
-    // If switching away from audio, stop any ongoing recording
     if (type !== 'audio' && isRecording[questionId]) {
       stopRecording(questionId);
+    }
+  };
+
+  const isUrl = (text: string): boolean => {
+    try {
+      const url = new URL(text.trim());
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
     }
   };
 
@@ -279,6 +336,33 @@ const StudentHW: React.FC = () => {
       const errors: string[] = [];
       
       questions.forEach((question, index) => {
+        if (question.question_type === 'video') {
+          const file = fieldAssignmentFile[question.id];
+          const yt = (fieldAssignmentYoutube[question.id] || '').trim();
+          const hasFile = !!file;
+          const hasYt = yt.length > 0;
+          if (!hasFile && !hasYt) {
+            errors.push(
+              `Question ${index + 1}: Upload a file or paste a YouTube link—use one or the other, not both.`
+            );
+          } else if (hasFile && hasYt) {
+            errors.push(
+              `Question ${index + 1}: Choose either a file upload or a YouTube link, not both.`
+            );
+          } else if (hasYt) {
+            if (!isUrl(yt)) {
+              errors.push(
+                `Question ${index + 1}: YouTube link must be a valid URL (https://...)`
+              );
+            } else if (!isYoutubeLikeUrl(yt)) {
+              errors.push(
+                `Question ${index + 1}: Link must be a YouTube URL (youtube.com or youtu.be)`
+              );
+            }
+          }
+          return;
+        }
+
         const response = responses[question.id];
         const responseType = question.question_type === 'multiple_choice' 
           ? 'multiple_choice' 
@@ -290,7 +374,17 @@ const StudentHW: React.FC = () => {
           return;
         }
 
-        // For written responses, require text
+        if (responseType === 'link') {
+          if (!response?.trim()) {
+            errors.push(`Question ${index + 1}: Please provide a link`);
+            return;
+          }
+          if (!isUrl(response.trim())) {
+            errors.push(`Question ${index + 1}: Please provide a valid URL (starting with http:// or https://)`);
+            return;
+          }
+        }
+
         if (responseType === 'written' && !response?.trim()) {
           errors.push(`Question ${index + 1}: Please provide a written response`);
           return;
@@ -311,6 +405,38 @@ const StudentHW: React.FC = () => {
       // Submit all responses
       const submitResults = await Promise.allSettled(
         questions.map(async (question, index) => {
+          const validModuleId = moduleId ? Number(moduleId) : module?.id;
+          if (validModuleId == null) {
+            throw new Error(`Question ${index + 1}: Missing module; cannot submit.`);
+          }
+
+          if (question.question_type === 'video') {
+            const file = fieldAssignmentFile[question.id];
+            const yt = (fieldAssignmentYoutube[question.id] || '').trim();
+            let payload: string;
+            if (file) {
+              const fileName = file.name;
+              const fileUrl = `upload:${fileName}`;
+              payload = serializeFieldAssignmentPayload({ fileName, fileUrl });
+            } else if (yt) {
+              payload = serializeFieldAssignmentPayload({ youtubeUrl: yt });
+            } else {
+              throw new Error(`Question ${index + 1}: Provide a file or a YouTube link.`);
+            }
+            if (submissions[question.id]) {
+              throw new Error(
+                `Question ${index + 1}: This question has already been submitted and cannot be resubmitted.`
+              );
+            }
+            await submissionAPI.submit({
+              question_id: question.id,
+              module_id: validModuleId,
+              submission_type: 'video',
+              response: payload,
+            });
+            return { question: question.id, success: true };
+          }
+
           const response = responses[question.id];
           const responseType = question.question_type === 'multiple_choice' 
             ? 'multiple_choice' 
@@ -348,14 +474,10 @@ const StudentHW: React.FC = () => {
             throw new Error(`No response provided for Question ${index + 1}`);
           }
 
-          // Use moduleId from URL params, or fall back to module.id if available
-          // The backend will use the question's module anyway, but we send it for validation
-          const validModuleId = moduleId ? Number(moduleId) : (module?.id || null);
-          
           const submissionData = {
             question_id: question.id,
-            module_id: validModuleId, // Backend will use question's module if this is None
-            submission_type: responseType,
+            module_id: validModuleId,
+            submission_type: responseType === 'link' ? 'written' : responseType,
             response: finalResponse,
           };
 
@@ -384,7 +506,6 @@ const StudentHW: React.FC = () => {
       const failures = submitResults
         .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
         .map((result, index) => {
-          const question = questions[index];
           const error = result.reason;
           return `Question ${index + 1}: ${error?.response?.data?.error || error?.response?.data?.detail || error?.message || 'Unknown error'}`;
         });
@@ -483,7 +604,7 @@ const StudentHW: React.FC = () => {
         </button>
         
         <div className="hw-header">
-          <h2 className="module-name-header">{module.module_name}</h2>
+          <h2 className="module-name-header">{moduleDisplayTitle(module)}</h2>
           <span className="due-date">Due: {module.due_date ? formatDate(module.due_date) : 'TBD'}</span>
         </div>
 
@@ -520,12 +641,98 @@ const StudentHW: React.FC = () => {
                       </label>
                     ))}
                   </div>
+                ) : question.question_type === 'video' ? (
+                  <div className="field-assignment-hw">
+                    <p className="field-assignment-intro">
+                      Submit <strong>either</strong> an uploaded file <strong>or</strong> a YouTube link—pick one, not
+                      both.
+                    </p>
+                    {!hasSubmission ? (
+                      <>
+                        <label className="field-assignment-file-label">
+                          <input
+                            type="file"
+                            className="field-assignment-file-input"
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,image/*,video/*,audio/*"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              setFieldAssignmentFile((prev) => ({ ...prev, [question.id]: f }));
+                              if (f) {
+                                setFieldAssignmentYoutube((prev) => ({ ...prev, [question.id]: '' }));
+                              }
+                            }}
+                          />
+                          <span className="field-assignment-file-btn">Choose file</span>
+                        </label>
+                        {fieldAssignmentFile[question.id] && (
+                          <p className="field-assignment-file-name">
+                            Selected: {fieldAssignmentFile[question.id]?.name}
+                          </p>
+                        )}
+                        <p className="field-assignment-or">— or —</p>
+                        <label className="field-assignment-youtube-label" htmlFor={`yt-${question.id}`}>
+                          YouTube link
+                        </label>
+                        <input
+                          id={`yt-${question.id}`}
+                          type="url"
+                          className="field-assignment-youtube-input"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                          value={fieldAssignmentYoutube[question.id] || ''}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setFieldAssignmentYoutube((prev) => ({ ...prev, [question.id]: v }));
+                            if (v.trim()) {
+                              setFieldAssignmentFile((prev) => ({ ...prev, [question.id]: null }));
+                            }
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <div className="field-assignment-review">
+                        <p className="field-assignment-review-title">Submitted</p>
+                        {fieldAssignmentSubmittedMeta[question.id]?.fileName ? (
+                          <p className="field-assignment-review-line">
+                            <strong>File:</strong> {fieldAssignmentSubmittedMeta[question.id].fileName}
+                            {fieldAssignmentSubmittedMeta[question.id].fileUrl &&
+                              isUrl(fieldAssignmentSubmittedMeta[question.id].fileUrl) && (
+                                <>
+                                  {' '}
+                                  <a
+                                    href={fieldAssignmentSubmittedMeta[question.id].fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Open
+                                  </a>
+                                </>
+                              )}
+                          </p>
+                        ) : null}
+                        {(fieldAssignmentYoutube[question.id] ||
+                          fieldAssignmentSubmittedMeta[question.id]?.youtubeUrl) && (
+                          <p className="field-assignment-review-line">
+                            <strong>YouTube:</strong>{' '}
+                            <a
+                              href={
+                                (fieldAssignmentYoutube[question.id] ||
+                                  fieldAssignmentSubmittedMeta[question.id]?.youtubeUrl) as string
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {fieldAssignmentYoutube[question.id] ||
+                                fieldAssignmentSubmittedMeta[question.id]?.youtubeUrl}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <>
-                    {/* Response Type Selection - Show for written, audio, or video questions (allow both options) */}
                     {(question.question_type === 'written' || 
-                      question.question_type === 'audio' || 
-                      question.question_type === 'video') && (
+                      question.question_type === 'audio') && (
                       <div className="response-type-selection">
                         <button
                           className={`response-type-btn ${responseTypes[question.id] === 'written' ? 'active' : ''}`}
@@ -546,8 +753,6 @@ const StudentHW: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Response Input */}
-                    {/* For audio submissions in review mode, always show audio player, not textarea */}
                     {(hasSubmission && submission.submission_type === 'audio') || 
                      (!hasSubmission && responseTypes[question.id] === 'audio') ? (
                       <div className="audio-recording">
@@ -605,6 +810,33 @@ const StudentHW: React.FC = () => {
                               )}
                             </div>
                           </div>
+                        )}
+                      </div>
+                    ) : responseTypes[question.id] === 'link' || (hasSubmission && isUrl(submission.submission_response)) ? (
+                      <div className="link-input-section">
+                        {isReviewMode && hasSubmission ? (
+                          <div className="link-review-display">
+                            <a href={responses[question.id]} target="_blank" rel="noopener noreferrer" className="submitted-link">
+                              {responses[question.id]}
+                            </a>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="link-hint">Paste a YouTube or Google Drive link below (encouraged)</p>
+                            <input
+                              type="url"
+                              className="link-input"
+                              placeholder="https://www.youtube.com/watch?v=... or https://drive.google.com/..."
+                              value={responses[question.id] || ''}
+                              onChange={(e) => handleResponseChange(question.id, e.target.value)}
+                              readOnly={isReviewMode && hasSubmission}
+                            />
+                            {responses[question.id] && isUrl(responses[question.id]) && (
+                              <a href={responses[question.id]} target="_blank" rel="noopener noreferrer" className="link-preview">
+                                Preview: {responses[question.id]}
+                              </a>
+                            )}
+                          </>
                         )}
                       </div>
                     ) : (
