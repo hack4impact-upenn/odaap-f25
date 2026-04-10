@@ -99,7 +99,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL)
 }
-DATABASES['default']['CONN_MAX_AGE'] = 600  # Keep DB connections alive for 10 minutes
+DATABASES['default']['CONN_MAX_AGE'] = 0  # Close connections after each request (required for Supabase pooler)
 
 # REST FRAMEWORK
 REST_FRAMEWORK = {
