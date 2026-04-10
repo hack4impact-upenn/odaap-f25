@@ -297,6 +297,7 @@ def presign_resource_pdf_url(url: str) -> str:
     key_id = getattr(settings, "AWS_ACCESS_KEY_ID", None)
     secret = getattr(settings, "AWS_SECRET_ACCESS_KEY", None)
     region = getattr(settings, "AWS_S3_REGION_NAME", "us-east-1")
+    endpoint_url = getattr(settings, "AWS_S3_ENDPOINT_URL", None)
     if not bucket or not key_id or not secret:
         return url
     try:
@@ -304,12 +305,14 @@ def presign_resource_pdf_url(url: str) -> str:
         key = parsed.path.lstrip("/")
         if not key.startswith("resource_pdfs/"):
             return url
-        s3 = boto3.client(
-            "s3",
-            aws_access_key_id=key_id,
-            aws_secret_access_key=secret,
-            region_name=region,
-        )
+        s3_kwargs = {
+            "aws_access_key_id": key_id,
+            "aws_secret_access_key": secret,
+            "region_name": region,
+        }
+        if endpoint_url:
+            s3_kwargs["endpoint_url"] = endpoint_url
+        s3 = boto3.client("s3", **s3_kwargs)
         return s3.generate_presigned_url(
             "get_object",
             Params={"Bucket": bucket, "Key": key},

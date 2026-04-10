@@ -1608,14 +1608,18 @@ class ResourceViewSet(viewsets.ModelViewSet):
             return request.build_absolute_uri(url)
 
         # Upload with Content-Disposition: attachment so browsers download instead of inline-viewing
+        endpoint_url = getattr(django_settings, "AWS_S3_ENDPOINT_URL", None)
+
         if use_s3:
             try:
-                s3 = boto3.client(
-                    "s3",
-                    aws_access_key_id=key_id,
-                    aws_secret_access_key=secret,
-                    region_name=region,
-                )
+                s3_kwargs = {
+                    "aws_access_key_id": key_id,
+                    "aws_secret_access_key": secret,
+                    "region_name": region,
+                }
+                if endpoint_url:
+                    s3_kwargs["endpoint_url"] = endpoint_url
+                s3 = boto3.client("s3", **s3_kwargs)
                 s3.put_object(
                     Bucket=bucket,
                     Key=storage_name,
