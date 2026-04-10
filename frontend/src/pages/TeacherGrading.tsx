@@ -25,7 +25,7 @@ function isUrl(text: string): boolean {
 }
 
 const TeacherGrading: React.FC = () => {
-  const { selectedCourse, courses, setSelectedCourse } = useCourse();
+  const { selectedCourse } = useCourse();
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);

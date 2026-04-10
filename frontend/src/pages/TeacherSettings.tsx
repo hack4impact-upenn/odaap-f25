@@ -10,9 +10,6 @@ import './TeacherSettings.css';
 const TeacherSettings: React.FC = () => {
   const { selectedCourse, courses, setSelectedCourse, loadCourses } = useCourse();
   const [zoomLink, setZoomLink] = useState('');
-  const [ceuCreditAppLink, setCeuCreditAppLink] = useState('');
-  const [ceuAct48Link, setCeuAct48Link] = useState('');
-  const [ceuProgramEvalLink, setCeuProgramEvalLink] = useState('');
   const [showCreateCourse, setShowCreateCourse] = useState(false);
   const [newCourseName, setNewCourseName] = useState('');
   const [newCourseDescription, setNewCourseDescription] = useState('');
@@ -39,9 +36,6 @@ const TeacherSettings: React.FC = () => {
   useEffect(() => {
     if (selectedCourse) {
       setZoomLink(selectedCourse.zoom_link || '');
-      setCeuCreditAppLink(selectedCourse.ceu_credit_application_link || '');
-      setCeuAct48Link(selectedCourse.ceu_act48_application_link || '');
-      setCeuProgramEvalLink(selectedCourse.ceu_program_evaluation_link || '');
       loadResources();
     }
   }, [selectedCourse]);
@@ -77,28 +71,6 @@ const TeacherSettings: React.FC = () => {
                           error?.response?.data?.detail || 
                           error?.message || 
                           'Error updating zoom link. Please try again.';
-      alert(errorMessage);
-    }
-  };
-
-  const handleUpdateCEULinks = async () => {
-    if (!selectedCourse) return;
-
-    try {
-      await courseAPI.updateCEULinks(selectedCourse.id, {
-        ceu_credit_application_link: ceuCreditAppLink,
-        ceu_act48_application_link: ceuAct48Link,
-        ceu_program_evaluation_link: ceuProgramEvalLink,
-      });
-      alert('CEU links updated successfully!');
-      // Reload courses to get updated data
-      await loadCourses();
-    } catch (error: any) {
-      console.error('Error updating CEU links:', error);
-      const errorMessage = error?.response?.data?.error || 
-                          error?.response?.data?.detail || 
-                          error?.message || 
-                          'Error updating CEU links. Please try again.';
       alert(errorMessage);
     }
   };

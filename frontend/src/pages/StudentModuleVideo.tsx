@@ -121,10 +121,6 @@ const StudentModuleVideo: React.FC = () => {
     navigate(`/student/hw/${moduleId}`, { state: { fromVideo: true } });
   };
 
-  const handleSkip = () => {
-    navigate(`/student/hw/${moduleId}`, { state: { fromVideo: true } });
-  };
-
   // If no video link or video ID couldn't be extracted, redirect to questions
   // Only check after loading is complete and we have module data
   useEffect(() => {

@@ -10,7 +10,7 @@ import './TeacherAnnouncements.css';
 const ANNOUNCEMENTS_PER_PAGE = 6;
 
 const TeacherAnnouncements: React.FC = () => {
-  const { user } = useAuth();
+  useAuth();
   const { selectedCourse, loading: courseLoading } = useCourse();
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
