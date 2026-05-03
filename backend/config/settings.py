@@ -173,17 +173,31 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# --- File uploads: S3-compatible storage (Supabase Storage) vs local disk ---
-# Supabase Storage is S3-compatible. Set SUPABASE_URL, SUPABASE_S3_ACCESS_KEY,
-# SUPABASE_S3_SECRET_KEY, and SUPABASE_STORAGE_BUCKET in env vars.
-AWS_ACCESS_KEY_ID = (os.getenv("SUPABASE_S3_ACCESS_KEY") or "").strip() or None
-AWS_SECRET_ACCESS_KEY = (os.getenv("SUPABASE_S3_SECRET_KEY") or "").strip() or None
-AWS_STORAGE_BUCKET_NAME = (os.getenv("SUPABASE_STORAGE_BUCKET") or "").strip() or None
-AWS_S3_REGION_NAME = (os.getenv("AWS_S3_REGION_NAME") or "us-east-1").strip() or "us-east-1"
-AWS_S3_ENDPOINT_URL = os.getenv("SUPABASE_S3_ENDPOINT", "").strip() or None
+# --- File uploads: S3-compatible storage (Cloudflare R2, Supabase Storage, etc.) ---
+# Provider-neutral env vars: S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET, S3_ENDPOINT, S3_PUBLIC_URL.
+# Falls back to legacy SUPABASE_* names during migration.
+AWS_ACCESS_KEY_ID = (
+    os.getenv("S3_ACCESS_KEY") or os.getenv("SUPABASE_S3_ACCESS_KEY") or ""
+).strip() or None
+AWS_SECRET_ACCESS_KEY = (
+    os.getenv("S3_SECRET_KEY") or os.getenv("SUPABASE_S3_SECRET_KEY") or ""
+).strip() or None
+AWS_STORAGE_BUCKET_NAME = (
+    os.getenv("S3_BUCKET") or os.getenv("SUPABASE_STORAGE_BUCKET") or ""
+).strip() or None
+AWS_S3_ENDPOINT_URL = (
+    os.getenv("S3_ENDPOINT") or os.getenv("SUPABASE_S3_ENDPOINT") or ""
+).strip() or None
+AWS_S3_REGION_NAME = (os.getenv("AWS_S3_REGION_NAME") or "auto").strip() or "auto"
 AWS_QUERYSTRING_AUTH = False
 AWS_DEFAULT_ACL = None
 AWS_S3_ADDRESSING_STYLE = "path"
+
+# Public URL prefix for serving files. Differs by provider:
+#   R2:       https://pub-<hash>.r2.dev   (or custom domain)
+#   Supabase: https://<project>.supabase.co/storage/v1/object/public/<bucket>
+# If unset, falls back to the legacy Supabase-style path on the endpoint.
+_s3_public_url = (os.getenv("S3_PUBLIC_URL") or "").strip().rstrip("/") or None
 
 _s3_fully_configured = bool(
     AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and AWS_STORAGE_BUCKET_NAME and AWS_S3_ENDPOINT_URL
@@ -198,7 +212,11 @@ USE_S3_STORAGE = _s3_fully_configured and (
 if USE_S3_STORAGE:
     INSTALLED_APPS += ["storages"]
     DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/object/public/{AWS_STORAGE_BUCKET_NAME}/"
+    if _s3_public_url:
+        MEDIA_URL = f"{_s3_public_url}/"
+        AWS_S3_CUSTOM_DOMAIN = _s3_public_url.split("://", 1)[-1]
+    else:
+        MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/object/public/{AWS_STORAGE_BUCKET_NAME}/"
 else:
     MEDIA_ROOT = BASE_DIR / "media"
     MEDIA_URL = "/media/"
