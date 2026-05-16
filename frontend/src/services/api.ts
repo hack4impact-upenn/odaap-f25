@@ -147,6 +147,14 @@ export const courseAPI = {
     return response.data;
   },
 
+  updateSurveyLinks: async (courseId: number, surveyLinks: {
+    pre_course_survey_link?: string;
+    post_course_survey_link?: string;
+  }): Promise<Course> => {
+    const response = await api.put(`/courses/${courseId}/survey-links/`, surveyLinks);
+    return response.data;
+  },
+
   getModules: async (courseId: number): Promise<Module[]> => {
     const response = await api.get(`/courses/${courseId}/modules/`);
     return response.data;

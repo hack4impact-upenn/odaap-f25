@@ -64,16 +64,6 @@ const TeacherEditModule: React.FC = () => {
         };
       });
       setEditingQuestions(editingState);
-      
-      // Set default response types for questions without submissions (skip multiple choice)
-      sortedQuestions.forEach((q) => {
-        if (!editingState[q.id]?.question_type && q.question_type !== 'multiple_choice') {
-          editingState[q.id] = {
-            ...editingState[q.id],
-            question_type: (q.question_type === 'audio' || q.question_type === 'video') ? 'audio' : 'written'
-          };
-        }
-      });
     } catch (error) {
       console.error('Error loading module:', error);
     } finally {
@@ -508,10 +498,20 @@ const TeacherEditModule: React.FC = () => {
                           type="radio" 
                           name={`type-${question.id}`} 
                           value="written"
-                          checked={editingQuestion.question_type === 'written' || editingQuestion.question_type === 'audio'}
+                          checked={editingQuestion.question_type === 'written'}
                           onChange={() => handleQuestionChange(question.id, 'question_type', 'written')}
                         />
-                        ✏️ Written/Audio
+                        ✏️ Written
+                      </label>
+                      <label>
+                        <input 
+                          type="radio" 
+                          name={`type-${question.id}`} 
+                          value="audio"
+                          checked={editingQuestion.question_type === 'audio'}
+                          onChange={() => handleQuestionChange(question.id, 'question_type', 'audio')}
+                        />
+                        🎤 Audio
                       </label>
                       <label>
                         <input 

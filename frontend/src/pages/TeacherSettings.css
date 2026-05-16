@@ -88,6 +88,10 @@
   background: #555;
 }
 
+.survey-links-card .survey-links-save {
+  align-self: flex-start;
+}
+
 .teacher-course-title {
   font-size: 24px;
   font-weight: 600;
@@ -128,60 +132,23 @@
   font-size: 24px;
   font-weight: 600;
   color: #333;
+  margin: 0;
+}
+
+.settings-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
   margin: 0 0 24px 0;
 }
 
-.course-selector-section {
-  margin-bottom: 24px;
-  padding: 16px;
+.manage-courses-button {
+  padding: 10px 18px;
   background: white;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.course-selector-section label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.course-select {
-  flex: 1;
-  max-width: 400px;
-  padding: 10px 36px 10px 12px;
-  background: #f5f5f5 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.course-select:focus {
-  outline: none;
-  border-color: #9c27b0;
-  background: white;
-}
-
-.no-courses-message {
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-  flex: 1;
-}
-
-.create-course-button {
-  padding: 10px 20px;
-  background: #9c27b0;
-  color: white;
-  border: none;
+  color: #9c27b0;
+  border: 1px solid #9c27b0;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
@@ -190,10 +157,16 @@
   white-space: nowrap;
 }
 
-.create-course-button:hover {
-  background: #7b1fa2;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.3);
+.manage-courses-button:hover {
+  background: #9c27b0;
+  color: white;
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.25);
+}
+
+.no-courses-message {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 24px 0;
 }
 
 .create-course-card {

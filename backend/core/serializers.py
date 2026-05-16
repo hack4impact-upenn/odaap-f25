@@ -83,7 +83,9 @@ class CourseSerializer(serializers.ModelSerializer):
             'student_enrollment_code',
             'ceu_credit_application_link',
             'ceu_act48_application_link',
-            'ceu_program_evaluation_link'
+            'ceu_program_evaluation_link',
+            'pre_course_survey_link',
+            'post_course_survey_link',
         ]
        
 

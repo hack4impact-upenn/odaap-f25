@@ -11,6 +11,9 @@ import {
 } from '../utils/fieldAssignment';
 import './StudentHW.css';
 
+/** Maximum length for in-browser audio responses (seconds). */
+const MAX_AUDIO_RECORDING_SECONDS = 5 * 60;
+
 const StudentHW: React.FC = () => {
   const { moduleId } = useParams<{ moduleId: string }>();
   const navigate = useNavigate();
@@ -21,7 +24,8 @@ const StudentHW: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [submissions, setSubmissions] = useState<Record<number, Submission>>({});
   const [responses, setResponses] = useState<Record<number, string>>({});
-  const [responseTypes, setResponseTypes] = useState<Record<number, 'written' | 'audio' | 'link'>>({});
+  /** Written questions only: textarea vs URL link mode (from submission or paste). */
+  const [responseTypes, setResponseTypes] = useState<Record<number, 'written' | 'link'>>({});
   const [audioRecordings, setAudioRecordings] = useState<Record<number, Blob | null>>({});
   const [isRecording, setIsRecording] = useState<Record<number, boolean>>({});
   const [recordingTime, setRecordingTime] = useState<Record<number, number>>({});
@@ -127,7 +131,7 @@ const StudentHW: React.FC = () => {
         try {
           const submissionsData = await submissionAPI.getAll(undefined, Number(moduleId));
           const initialResponses: Record<number, string> = {};
-          const initialTypes: Record<number, 'written' | 'audio' | 'link'> = {};
+          const initialTypes: Record<number, 'written' | 'link'> = {};
           
           submissionsData.forEach((sub: Submission) => {
             if (sub.user_id === user.id) {
@@ -135,7 +139,6 @@ const StudentHW: React.FC = () => {
               initialResponses[sub.question_id] = sub.submission_response;
 
               if (sub.submission_type === 'audio') {
-                initialTypes[sub.question_id] = 'audio';
                 if (sub.submission_response) {
                   setAudioRecordings(prev => ({ ...prev, [sub.question_id]: null }));
                 }
@@ -199,7 +202,7 @@ const StudentHW: React.FC = () => {
       }
 
       sortedQuestions.forEach((q) => {
-        if (q.question_type === 'multiple_choice' || q.question_type === 'video') return;
+        if (q.question_type !== 'written') return;
         if (submissionsMap[q.id]) return;
         setResponseTypes((prev) => {
           if (prev[q.id]) return prev;
@@ -216,13 +219,6 @@ const StudentHW: React.FC = () => {
 
   const handleResponseChange = (questionId: number, value: string) => {
     setResponses(prev => ({ ...prev, [questionId]: value }));
-  };
-
-  const handleResponseTypeChange = (questionId: number, type: 'written' | 'audio' | 'link') => {
-    setResponseTypes(prev => ({ ...prev, [questionId]: type }));
-    if (type !== 'audio' && isRecording[questionId]) {
-      stopRecording(questionId);
-    }
   };
 
   const isUrl = (text: string): boolean => {
@@ -267,12 +263,18 @@ const StudentHW: React.FC = () => {
       setIsRecording(prev => ({ ...prev, [questionId]: true }));
       setRecordingTime(prev => ({ ...prev, [questionId]: 0 }));
 
-      // Start timer
+      let elapsed = 0;
       const interval = setInterval(() => {
-        setRecordingTime(prev => {
-          const newTime = (prev[questionId] || 0) + 1;
-          return { ...prev, [questionId]: newTime };
-        });
+        elapsed += 1;
+        setRecordingTime(prev => ({ ...prev, [questionId]: elapsed }));
+        if (elapsed >= MAX_AUDIO_RECORDING_SECONDS) {
+          clearInterval(interval);
+          if (recorder.state !== 'inactive') {
+            recorder.stop();
+          }
+          setIsRecording(prev => ({ ...prev, [questionId]: false }));
+          alert('Maximum recording length is 5 minutes. Recording stopped automatically.');
+        }
       }, 1000);
 
       // Store interval ID to clear later
@@ -364,9 +366,12 @@ const StudentHW: React.FC = () => {
         }
 
         const response = responses[question.id];
-        const responseType = question.question_type === 'multiple_choice' 
-          ? 'multiple_choice' 
-          : (responseTypes[question.id] || 'written');
+        const responseType =
+          question.question_type === 'multiple_choice'
+            ? 'multiple_choice'
+            : question.question_type === 'audio'
+              ? 'audio'
+              : (responseTypes[question.id] || 'written');
         
         // For multiple choice, require a selection
         if (question.question_type === 'multiple_choice' && !response) {
@@ -393,6 +398,15 @@ const StudentHW: React.FC = () => {
         // For audio, require a recording
         if (responseType === 'audio' && !response && !audioRecordings[question.id]) {
           errors.push(`Question ${index + 1}: Please record an audio response`);
+          return;
+        }
+        if (
+          responseType === 'audio' &&
+          (recordingTime[question.id] || 0) > MAX_AUDIO_RECORDING_SECONDS
+        ) {
+          errors.push(
+            `Question ${index + 1}: Audio must be at most 5 minutes. Delete the recording and try again.`
+          );
           return;
         }
       });
@@ -438,9 +452,12 @@ const StudentHW: React.FC = () => {
           }
 
           const response = responses[question.id];
-          const responseType = question.question_type === 'multiple_choice' 
-            ? 'multiple_choice' 
-            : (responseTypes[question.id] || 'written');
+          const responseType =
+            question.question_type === 'multiple_choice'
+              ? 'multiple_choice'
+              : question.question_type === 'audio'
+                ? 'audio'
+                : (responseTypes[question.id] || 'written');
           
           // Skip if no response (shouldn't happen after validation, but just in case)
           if (!response && responseType !== 'audio' && responseType !== 'multiple_choice') {
@@ -731,35 +748,17 @@ const StudentHW: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    {(question.question_type === 'written' || 
-                      question.question_type === 'audio') && (
-                      <div className="response-type-selection">
-                        <button
-                          className={`response-type-btn ${responseTypes[question.id] === 'written' ? 'active' : ''}`}
-                          onClick={() => handleResponseTypeChange(question.id, 'written')}
-                          disabled={isReviewMode && hasSubmission}
-                        >
-                          <span className="icon-doc">✏️</span>
-                          Written Response
-                        </button>
-                        <button
-                          className={`response-type-btn ${responseTypes[question.id] === 'audio' ? 'active' : ''}`}
-                          onClick={() => handleResponseTypeChange(question.id, 'audio')}
-                          disabled={isReviewMode && hasSubmission}
-                        >
-                          <span className="icon-mic">🎤</span>
-                          Audio Recording
-                        </button>
-                      </div>
-                    )}
-
-                    {(hasSubmission && submission.submission_type === 'audio') || 
-                     (!hasSubmission && responseTypes[question.id] === 'audio') ? (
+                    {question.question_type === 'audio' ||
+                    (hasSubmission && submission.submission_type === 'audio') ? (
                       <div className="audio-recording">
                         {!audioRecordings[question.id] && !hasSubmission ? (
                           <>
                             {!isRecording[question.id] ? (
-                              <button 
+                              <>
+                                <p className="audio-max-length-hint">
+                                  Maximum recording length: 5 minutes.
+                                </p>
+                                <button 
                                 className="record-button" 
                                 onClick={() => startRecording(question.id)}
                                 disabled={isReviewMode && hasSubmission}
@@ -767,11 +766,15 @@ const StudentHW: React.FC = () => {
                                 <span className="icon-mic">🎤</span>
                                 Start Recording
                               </button>
+                              </>
                             ) : (
                               <div className="recording-controls">
                                 <div className="recording-indicator">
                                   <span className="recording-dot"></span>
-                                  <span className="recording-time">Recording: {formatTime(recordingTime[question.id] || 0)}</span>
+                                  <span className="recording-time">
+                                    Recording: {formatTime(recordingTime[question.id] || 0)} /{' '}
+                                    {formatTime(MAX_AUDIO_RECORDING_SECONDS)}
+                                  </span>
                                 </div>
                                 <button 
                                   className="stop-button" 

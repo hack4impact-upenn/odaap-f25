@@ -18,6 +18,8 @@ export interface Course {
   ceu_credit_application_link?: string;
   ceu_act48_application_link?: string;
   ceu_program_evaluation_link?: string;
+  pre_course_survey_link?: string;
+  post_course_survey_link?: string;
 }
 
 export interface Module {

@@ -201,8 +201,9 @@ const TeacherModules: React.FC = () => {
       case 'multiple_choice':
         return 'MC';
       case 'written':
-      case 'audio':
         return '📝';
+      case 'audio':
+        return '🎤';
       case 'video':
         return '🎥';
       default:

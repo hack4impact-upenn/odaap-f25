@@ -15,6 +15,9 @@ import './StudentMain.css';
 
 const ANNOUNCEMENTS_PER_PAGE = 6;
 
+/** Public asset (see `frontend/public/brand/`) — community photo used as dashboard header. */
+const STUDENT_DASHBOARD_HERO = `${import.meta.env.BASE_URL}brand/student-dashboard-hero.png`;
+
 const formatDate = (dateString?: string) => {
   if (!dateString) return 'TBD';
   try {
@@ -171,10 +174,10 @@ const StudentMain: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="student-main">
+      <div className="student-main student-dashboard">
         <Header />
-        <div className="student-content">
-          <div>Loading...</div>
+        <div className="student-content student-content--loading">
+          <div className="student-dashboard-loading">Loading your dashboard…</div>
         </div>
       </div>
     );
@@ -182,6 +185,10 @@ const StudentMain: React.FC = () => {
 
   const currentCourse = courses[0]; // Use first course for now
   const overallCourseGrade = equalModuleOverallPercent(modules, submissions);
+
+  const allPostedModulesCompleted =
+    modules.length === 0 ||
+    modules.every((m) => getModuleStatus(m).status === 'completed');
 
   // Get upcoming assignments: modules that are posted and not fully completed
   const upcomingModules = modules.filter(m => {
@@ -201,11 +208,29 @@ const StudentMain: React.FC = () => {
   const upcomingCount = upcomingModules.length;
 
   return (
-    <div className="student-main">
+    <div className="student-main student-dashboard">
       <Header />
-      
+
+      <section
+        className="student-hero"
+        aria-label="Open Door Abuse Prevention — classroom community"
+      >
+        <div
+          className="student-hero__image"
+          style={{ backgroundImage: `url(${STUDENT_DASHBOARD_HERO})` }}
+          role="presentation"
+        />
+        <div className="student-hero__scrim" aria-hidden />
+        <div className="student-hero__content">
+          <p className="student-hero__eyebrow">ODAAP</p>
+          <h1 className="student-hero__title">
+            {currentCourse?.course_name || 'Your course'}
+          </h1>
+          
+        </div>
+      </section>
+
       <div className="student-content">
-        <h2 className="term-title">{currentCourse?.course_name || 'Course'}</h2>
         {modules.length > 0 && (
           <p className="student-overall-grade" aria-live="polite">
             {overallCourseGrade !== null
@@ -456,22 +481,53 @@ const StudentMain: React.FC = () => {
         </div>
 
         {/* Surveys Section */}
+        {(currentCourse?.pre_course_survey_link || currentCourse?.post_course_survey_link) && (
         <div className="surveys-section">
           <div className="card survey-card">
             <h3 className="card-title">Pre-Course Survey</h3>
-            <button className="btn-survey">
-              Open Survey
-              <span className="icon-link">🔗</span>
-            </button>
+            {currentCourse?.pre_course_survey_link ? (
+              <a
+                className="btn-survey"
+                href={currentCourse.pre_course_survey_link}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open Survey
+                <span className="icon-link">🔗</span>
+              </a>
+            ) : (
+              <button type="button" className="btn-survey disabled" disabled>
+                Not linked yet
+                <span className="icon-lock">🔒</span>
+              </button>
+            )}
           </div>
           <div className="card survey-card">
             <h3 className="card-title">Post-Course Survey</h3>
-            <button className="btn-survey disabled" disabled>
-              Complete All Modules First
-              <span className="icon-lock">🔒</span>
-            </button>
+            {!currentCourse?.post_course_survey_link ? (
+              <button type="button" className="btn-survey disabled" disabled>
+                Not linked yet
+                <span className="icon-lock">🔒</span>
+              </button>
+            ) : !allPostedModulesCompleted ? (
+              <button type="button" className="btn-survey disabled" disabled>
+                Complete All Modules First
+                <span className="icon-lock">🔒</span>
+              </button>
+            ) : (
+              <a
+                className="btn-survey"
+                href={currentCourse.post_course_survey_link}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open Survey
+                <span className="icon-link">🔗</span>
+              </a>
+            )}
           </div>
         </div>
+        )}
 
         {/* CEU Links Section */}
         {currentCourse && (

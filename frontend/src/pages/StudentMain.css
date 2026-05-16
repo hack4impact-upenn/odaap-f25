@@ -3,6 +3,120 @@
   background: #f5f5f5;
 }
 
+.student-main.student-dashboard {
+  --odap-purple: #6a1b9a;
+  --odap-purple-deep: #4a148c;
+  --odap-teal: #00838f;
+  --odap-teal-soft: rgba(0, 131, 143, 0.12);
+  --odap-green: #2e7d32;
+  --odap-cream: #faf8fc;
+  background: linear-gradient(180deg, #e0f2f1 0%, #f3e5f5 22%, var(--odap-cream) 45%, #f0f4f8 100%);
+  overflow-x: hidden;
+}
+
+/* ---- Hero (compact; keeps dashboard features primary) ---- */
+.student-hero {
+  position: relative;
+  width: 100%;
+  min-height: clamp(130px, 20vw, 200px);
+  max-height: 220px;
+  overflow: hidden;
+  border-bottom: 4px solid var(--odap-teal);
+  box-shadow: 0 8px 24px rgba(74, 20, 140, 0.12);
+}
+
+.student-hero__image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 22%;
+  background-repeat: no-repeat;
+  transform: scale(1.02);
+}
+
+.student-hero__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(74, 20, 140, 0.92) 0%,
+    rgba(74, 20, 140, 0.78) 38%,
+    rgba(0, 77, 80, 0.45) 72%,
+    rgba(0, 77, 80, 0.2) 100%
+  );
+}
+
+.student-hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: clamp(14px, 3vw, 24px) 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: clamp(130px, 20vw, 200px);
+}
+
+.student-hero__eyebrow {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.student-hero__title {
+  margin: 0 0 10px 0;
+  font-size: clamp(1.35rem, 3.2vw, 2rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  max-width: 20ch;
+}
+
+@media (min-width: 640px) {
+  .student-hero__title {
+    max-width: 28ch;
+  }
+}
+
+.student-hero__subtitle {
+  margin: 0;
+  font-size: clamp(0.875rem, 1.6vw, 1rem);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+  max-width: 36rem;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-hero__image {
+    transform: none;
+  }
+}
+
+.student-dashboard .student-content {
+  padding-top: 14px;
+}
+
+.student-dashboard-loading {
+  padding: 48px 24px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--odap-purple-deep, #4a148c);
+}
+
+.student-content--loading {
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .student-content {
   max-width: 1200px;
   margin: 0 auto;
@@ -17,22 +131,31 @@
   text-align: left;
 }
 
+.student-dashboard .student-overall-grade {
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  border-left: none;
+  box-shadow: none;
+}
+
 .student-overall-grade {
-  margin: -8px 0 20px 0;
+  margin: 0 0 20px 0;
   font-size: 16px;
   font-weight: 600;
   color: #333;
 }
 
-/* Course sub-nav (matches teacher pill tabs; avoids default button chrome) */
+/* Course sub-nav */
 .student-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 0 0 24px 0;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 0;
   align-items: center;
+  background: none;
+  border: none;
 }
 
 .student-nav button {
@@ -45,18 +168,20 @@
   font-size: 14px;
   font-weight: 500;
   font-family: inherit;
-  color: #666;
-  transition: background 0.2s ease, color 0.2s ease;
+  color: #455a64;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .student-nav button:hover {
-  background: #f0f0f0;
-  color: #333;
+  background: rgba(255, 255, 255, 0.65);
+  color: #263238;
 }
 
 .student-nav button.active {
-  background: #e0e0e0;
-  color: #333;
+  background: #fff;
+  color: var(--odap-purple-deep, #4a148c);
+  box-shadow: 0 2px 8px rgba(74, 20, 140, 0.12);
+  font-weight: 600;
 }
 
 /* Top Layer: Announcements (full width) */
@@ -95,6 +220,11 @@
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.student-dashboard .card {
+  border: 1px solid rgba(106, 27, 154, 0.1);
+  box-shadow: 0 2px 12px rgba(74, 20, 140, 0.08);
 }
 
 .card-title {
@@ -225,6 +355,14 @@
   text-decoration: underline;
 }
 
+.student-dashboard .read-more-btn {
+  color: var(--odap-teal, #00838f);
+}
+
+.student-dashboard .read-more-btn:hover {
+  color: var(--odap-purple-deep, #4a148c);
+}
+
 .announcement-meta {
   display: flex;
   align-items: center;
@@ -297,7 +435,7 @@
 
 .zoom-button:hover {
   background: #f5f5f5;
-  border-color: #9c27b0;
+  border-color: var(--odap-teal, #00838f);
 }
 
 .icon-arrow {
@@ -422,6 +560,14 @@
   font-weight: 700;
   color: #333;
   margin: 0 0 24px 0;
+}
+
+.student-dashboard .modules-section .section-title {
+  color: var(--odap-purple-deep, #4a148c);
+}
+
+.student-dashboard .ceu-consolidated-card .section-title {
+  color: var(--odap-purple-deep, #4a148c);
 }
 
 .modules-list {
@@ -694,6 +840,13 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+a.btn-survey:hover {
+  background: #7b1fa2;
+  color: white;
 }
 
 .btn-survey:hover {

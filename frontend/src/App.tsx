@@ -13,6 +13,7 @@ import TeacherModules from './pages/TeacherModules';
 import TeacherEditModule from './pages/TeacherEditModule';
 import TeacherAnnouncements from './pages/TeacherAnnouncements';
 import TeacherSettings from './pages/TeacherSettings';
+import TeacherCourses from './pages/TeacherCourses';
 import TeacherGrading from './pages/TeacherGrading';
 import './App.css';
 
@@ -129,6 +130,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TeacherSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/courses"
+            element={
+              <ProtectedRoute>
+                <TeacherCourses />
               </ProtectedRoute>
             }
           />

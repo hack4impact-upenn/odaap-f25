@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { useAuth } from '../contexts/AuthContext';
 import { useCourse } from '../contexts/CourseContext';
 import { courseAPI, authAPI, resourceAPI } from '../services/api';
 import type { Resource, ResourceLink } from '../types';
 import './TeacherSettings.css';
 
 const TeacherSettings: React.FC = () => {
-  const { selectedCourse, courses, setSelectedCourse, loadCourses } = useCourse();
+  const { selectedCourse, courses, loadCourses } = useCourse();
   const [zoomLink, setZoomLink] = useState('');
-  const [showCreateCourse, setShowCreateCourse] = useState(false);
-  const [newCourseName, setNewCourseName] = useState('');
-  const [newCourseDescription, setNewCourseDescription] = useState('');
-  const [sourceCourseId, setSourceCourseId] = useState<number | null>(null);
-  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [preCourseSurveyLink, setPreCourseSurveyLink] = useState('');
+  const [postCourseSurveyLink, setPostCourseSurveyLink] = useState('');
   const [showAddTeacher, setShowAddTeacher] = useState(false);
   const [teacherFirstName, setTeacherFirstName] = useState('');
   const [teacherLastName, setTeacherLastName] = useState('');
@@ -30,12 +26,13 @@ const TeacherSettings: React.FC = () => {
   const [resourceLinks, setResourceLinks] = useState<ResourceLink[]>([{ label: '', url: '' }]);
   const [pdfUploading, setPdfUploading] = useState(false);
   const resourcePdfInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (selectedCourse) {
       setZoomLink(selectedCourse.zoom_link || '');
+      setPreCourseSurveyLink(selectedCourse.pre_course_survey_link || '');
+      setPostCourseSurveyLink(selectedCourse.post_course_survey_link || '');
       loadResources();
     }
   }, [selectedCourse]);
@@ -47,13 +44,6 @@ const TeacherSettings: React.FC = () => {
       setResources(data);
     } catch (error) {
       console.error('Error loading resources:', error);
-    }
-  };
-
-  const handleCourseChange = (courseId: number) => {
-    const course = courses.find(c => c.id === courseId);
-    if (course) {
-      setSelectedCourse(course);
     }
   };
 
@@ -71,6 +61,26 @@ const TeacherSettings: React.FC = () => {
                           error?.response?.data?.detail || 
                           error?.message || 
                           'Error updating zoom link. Please try again.';
+      alert(errorMessage);
+    }
+  };
+
+  const handleUpdateSurveyLinks = async () => {
+    if (!selectedCourse) return;
+
+    try {
+      await courseAPI.updateSurveyLinks(selectedCourse.id, {
+        pre_course_survey_link: preCourseSurveyLink,
+        post_course_survey_link: postCourseSurveyLink,
+      });
+      alert('Survey links updated successfully!');
+      await loadCourses();
+    } catch (error: any) {
+      console.error('Error updating survey links:', error);
+      const errorMessage = error?.response?.data?.error ||
+                          error?.response?.data?.detail ||
+                          error?.message ||
+                          'Error updating survey links. Please try again.';
       alert(errorMessage);
     }
   };
@@ -238,56 +248,6 @@ const TeacherSettings: React.FC = () => {
     }
   };
 
-  const handleCreateCourse = async () => {
-    if (!user) return;
-    
-    if (!newCourseName.trim()) {
-      alert('Please enter a course name');
-      return;
-    }
-
-    try {
-      setIsCreatingCourse(true);
-      
-      // Create the course with optional source course for copying
-      const courseData: any = {
-        course_name: newCourseName.trim(),
-        course_description: newCourseDescription.trim() || undefined,
-        score_total: 0,
-      };
-      
-      // Add source_course_id if a source course is selected
-      if (sourceCourseId) {
-        courseData.source_course_id = sourceCourseId;
-      }
-      
-      const newCourse = await courseAPI.create(courseData);
-
-      alert(sourceCourseId 
-        ? 'Course created successfully! Modules and questions have been copied (without due dates and not posted).' 
-        : 'Course created successfully!');
-      
-      // Reset form
-      setNewCourseName('');
-      setNewCourseDescription('');
-      setSourceCourseId(null);
-      setShowCreateCourse(false);
-      
-      // Reload courses and select the new one
-      await loadCourses();
-      setSelectedCourse(newCourse);
-    } catch (error: any) {
-      console.error('Error creating course:', error);
-      const errorMessage = error?.response?.data?.error || 
-                          error?.response?.data?.detail || 
-                          error?.message || 
-                          'Error creating course. Please try again.';
-      alert(errorMessage);
-    } finally {
-      setIsCreatingCourse(false);
-    }
-  };
-
   return (
     <div className="teacher-settings">
       <Header />
@@ -314,92 +274,21 @@ const TeacherSettings: React.FC = () => {
           </button>
         </nav>
 
-        <h1>Settings</h1>
-
-        <div className="course-selector-section">
-          {courses.length > 0 ? (
-            <>
-              <label htmlFor="course-select">Select Course:</label>
-              <select
-                id="course-select"
-                className="course-select"
-                value={selectedCourse?.id || ''}
-                onChange={(e) => handleCourseChange(Number(e.target.value))}
-              >
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.course_name}
-                  </option>
-                ))}
-              </select>
-            </>
-          ) : (
-            <p className="no-courses-message">No courses yet. Create your first course below.</p>
-          )}
-          <button 
-            className="create-course-button"
-            onClick={() => setShowCreateCourse(!showCreateCourse)}
+        <div className="settings-heading-row">
+          <h1>Settings</h1>
+          <button
+            type="button"
+            className="manage-courses-button"
+            onClick={() => navigate('/teacher/courses')}
           >
-            {showCreateCourse ? 'Cancel' : '+ Create New Course'}
+            {courses.length > 0 ? '📚 Manage courses' : '+ Create your first course'}
           </button>
         </div>
 
-        {showCreateCourse && (
-          <div className="settings-card create-course-card">
-            <h2>➕ Create New Course</h2>
-            <p className="create-course-description">Create a new course to start adding modules and content. Optionally copy modules, questions, and resources from an existing course.</p>
-            <div className="create-course-form">
-              <div className="form-group">
-                <label>Course Name *</label>
-                <input
-                  type="text"
-                  value={newCourseName}
-                  onChange={(e) => setNewCourseName(e.target.value)}
-                  placeholder="e.g., Fall 25, Spring 26"
-                  className="course-name-input"
-                />
-              </div>
-              <div className="form-group">
-                <label>Course Description (Optional)</label>
-                <textarea
-                  value={newCourseDescription}
-                  onChange={(e) => setNewCourseDescription(e.target.value)}
-                  placeholder="Enter a description for this course"
-                  rows={3}
-                  className="course-description-input"
-                />
-              </div>
-              {courses.length > 0 && (
-                <div className="form-group">
-                  <label>Copy from Existing Course (Optional)</label>
-                  <select
-                    value={sourceCourseId || ''}
-                    onChange={(e) => setSourceCourseId(e.target.value ? Number(e.target.value) : null)}
-                    className="source-course-select"
-                  >
-                    <option value="">-- Create empty course --</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.course_name}
-                      </option>
-                    ))}
-                  </select>
-                  {sourceCourseId && (
-                    <small className="copy-note">
-                      Modules, questions, and resources will be copied. Due dates will be removed and modules will not be posted.
-                    </small>
-                  )}
-                </div>
-              )}
-              <button 
-                className="create-course-submit-button" 
-                onClick={handleCreateCourse}
-                disabled={isCreatingCourse || !newCourseName.trim()}
-              >
-                {isCreatingCourse ? 'Creating...' : 'Create Course'}
-              </button>
-            </div>
-          </div>
+        {courses.length === 0 && (
+          <p className="no-courses-message">
+            You don't have any courses yet. Create one to start configuring its settings.
+          </p>
         )}
 
         <div className="settings-grid">
@@ -544,7 +433,38 @@ const TeacherSettings: React.FC = () => {
               </div>
             </div>
           </div>
-                
+
+          <div className="settings-card zoom-card survey-links-card">
+            <h2>📋 Pre / Post Course Surveys</h2>
+            <p className="zoom-description">
+              Paste the full URLs for your pre-course and post-course surveys. Students see these on their dashboard; leave blank to hide a survey until you are ready.
+            </p>
+            <div className="zoom-form">
+              <div className="form-group">
+                <label htmlFor="pre-survey-link">Pre-course survey URL</label>
+                <input
+                  id="pre-survey-link"
+                  type="url"
+                  value={preCourseSurveyLink}
+                  onChange={(e) => setPreCourseSurveyLink(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="post-survey-link">Post-course survey URL</label>
+                <input
+                  id="post-survey-link"
+                  type="url"
+                  value={postCourseSurveyLink}
+                  onChange={(e) => setPostCourseSurveyLink(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <button type="button" className="update-zoom-button survey-links-save" onClick={handleUpdateSurveyLinks}>
+                Save survey links
+              </button>
+            </div>
+          </div>
 
           <div className="settings-card resources-card">
             <h2>📚 Student Resources</h2>

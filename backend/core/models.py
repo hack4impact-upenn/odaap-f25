@@ -27,6 +27,8 @@ class Course(models.Model):
     ceu_credit_application_link = models.TextField(null=True, blank=True)  # Continuing Education Credit Application
     ceu_act48_application_link = models.TextField(null=True, blank=True)  # ACT 48 Application
     ceu_program_evaluation_link = models.TextField(null=True, blank=True)  # Program Evaluation
+    pre_course_survey_link = models.TextField(null=True, blank=True)
+    post_course_survey_link = models.TextField(null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "Courses"

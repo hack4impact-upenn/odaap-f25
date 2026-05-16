@@ -899,6 +899,52 @@ class CourseViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=True, methods=['put', 'patch'], url_path='survey-links')
+    def update_survey_links(self, request, pk=None):
+        """
+        PUT /api/courses/{course_id}/survey-links
+        Updates pre- and post-course survey URLs. Only teachers of the course may update.
+        """
+        try:
+            course = self.get_object()
+            user = request.user
+
+            if user.isStudent:
+                return Response(
+                    {"error": "Only teachers can update survey links"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            is_teacher = CourseToTeachers.objects.filter(course=course, user=user).exists()
+            if not is_teacher:
+                return Response(
+                    {"error": "You are not a teacher of this course"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            pre_course_survey_link = request.data.get('pre_course_survey_link', '')
+            post_course_survey_link = request.data.get('post_course_survey_link', '')
+
+            course.pre_course_survey_link = (pre_course_survey_link or '').strip() or None
+            course.post_course_survey_link = (post_course_survey_link or '').strip() or None
+            course.save(update_fields=['pre_course_survey_link', 'post_course_survey_link'])
+
+            serializer = self.get_serializer(course)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"Error in update_survey_links: {error_trace}")
+            return Response(
+                {
+                    "error": str(e),
+                    "detail": "Failed to update survey links",
+                    "type": type(e).__name__
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @action(detail=True, methods=['get'], url_path='modules')
     def get_course_modules(self, request, pk=None):
