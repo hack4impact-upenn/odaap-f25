@@ -40,9 +40,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Check password
         if not user.check_password(password):
             raise serializers.ValidationError('password and username incorrect')
-        
+
         if not user.is_active:
-            raise serializers.ValidationError('User account is disabled.')
+            raise serializers.ValidationError({
+                'detail': 'Please verify your email before logging in. Check your inbox for a verification link.',
+                'code': 'email_unverified',
+            })
         
         # Generate tokens
         refresh = self.get_token(user)

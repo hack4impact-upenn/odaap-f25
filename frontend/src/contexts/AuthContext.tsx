@@ -2,11 +2,17 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import { authAPI } from '../services/api';
 import type { User, LoginCredentials, RegisterData } from '../types';
 
+interface RegisterResult {
+  needs_verification?: boolean;
+  email?: string;
+  message?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  register: (data: RegisterData) => Promise<RegisterResult>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -41,12 +47,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (data: RegisterData) => {
+  const register = async (data: RegisterData): Promise<RegisterResult> => {
     try {
-      const response = await authAPI.register(data);
-      localStorage.setItem('access_token', response.access);
-      localStorage.setItem('refresh_token', response.refresh);
-      setUser(response.user);
+      const response: any = await authAPI.register(data);
+      // New flow: backend creates an inactive user, emails a verify link, and does
+      // NOT return JWT tokens. Fall back to legacy flow if tokens are still returned.
+      if (response?.access && response?.refresh) {
+        localStorage.setItem('access_token', response.access);
+        localStorage.setItem('refresh_token', response.refresh);
+        setUser(response.user);
+        return {};
+      }
+      return {
+        needs_verification: !!response?.needs_verification,
+        email: response?.email,
+        message: response?.message,
+      };
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;

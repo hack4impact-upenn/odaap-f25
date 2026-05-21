@@ -17,6 +17,13 @@ from django.db.models import Q
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .emails import (
+    parse_password_reset_token,
+    parse_verification_token,
+    send_password_reset_email,
+    send_verification_email,
+)
+
 
 def generate_enrollment_code(length=5):
     """Generate a unique random uppercase enrollment code."""
@@ -86,28 +93,126 @@ def register(request):
         password=password,
         first_name=first_name,
         last_name=last_name,
-        isStudent=True
+        isStudent=True,
+        is_active=False,
     )
-    
+
     CourseToStudents.objects.get_or_create(
         course=course,
         user=user
     )
-    
-    # Generate tokens
-    refresh = RefreshToken.for_user(user)
-    
+
+    send_verification_email(user)
+
     return Response({
-        'access': str(refresh.access_token),
-        'refresh': str(refresh),
-        'user': {
-            'id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'isStudent': user.isStudent,
-        }
+        'message': 'Account created. Please check your email to verify your account before logging in.',
+        'needs_verification': True,
+        'email': user.email,
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def verify_email(request):
+    """POST /api/verify-email/  body: { token } — activates user."""
+    token = (request.data.get('token') or '').strip()
+    if not token:
+        return Response({'error': 'token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_id = parse_verification_token(token)
+    if user_id is None:
+        return Response(
+            {'error': 'This verification link is invalid or has expired.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'Account not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not user.is_active:
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+
+    return Response({'message': 'Email verified. You can now log in.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def resend_verification(request):
+    """POST /api/resend-verification/  body: { email } — re-sends the verify link."""
+    email = (request.data.get('email') or '').strip().lower()
+    if not email:
+        return Response({'error': 'email is required'}, status=status.HTTP_400_BAD_REQUEST)
+    # Always respond the same way to avoid leaking which emails exist.
+    user = User.objects.filter(email__iexact=email).first()
+    if user and not user.is_active:
+        send_verification_email(user)
+    return Response(
+        {'message': 'If an account with that email exists and needs verification, a new link has been sent.'},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def request_password_reset(request):
+    """POST /api/request-password-reset/  body: { email } — sends a reset link."""
+    email = (request.data.get('email') or '').strip().lower()
+    if not email:
+        return Response({'error': 'email is required'}, status=status.HTTP_400_BAD_REQUEST)
+    # Don't reveal whether the email is registered.
+    user = User.objects.filter(email__iexact=email, is_active=True).first()
+    if user:
+        send_password_reset_email(user)
+    return Response(
+        {'message': 'If an account with that email exists, a password reset link has been sent.'},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def confirm_password_reset(request):
+    """POST /api/reset-password/  body: { uid, token, new_password } — completes the reset."""
+    uid = (request.data.get('uid') or '').strip()
+    token = (request.data.get('token') or '').strip()
+    new_password = request.data.get('new_password') or ''
+
+    if not uid or not token or not new_password:
+        return Response(
+            {'error': 'uid, token, and new_password are required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if len(new_password) < 6:
+        return Response(
+            {'error': 'New password must be at least 6 characters'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = parse_password_reset_token(uid, token, User)
+    if user is None:
+        return Response(
+            {'error': 'This password reset link is invalid or has expired.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user.set_password(new_password)
+    # If a user resets their password before verifying their email, treat the click-through
+    # as proof of email ownership and activate them.
+    if not user.is_active:
+        user.is_active = True
+        user.save(update_fields=['password', 'is_active'])
+    else:
+        user.save(update_fields=['password'])
+
+    return Response({'message': 'Password reset successfully. You can now log in.'}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

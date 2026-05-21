@@ -96,6 +96,30 @@ export const authAPI = {
     });
     return response.data;
   },
+
+  verifyEmail: async (token: string): Promise<{ message: string }> => {
+    const response = await api.post('/verify-email/', { token });
+    return response.data;
+  },
+
+  resendVerification: async (email: string): Promise<{ message: string }> => {
+    const response = await api.post('/resend-verification/', { email });
+    return response.data;
+  },
+
+  requestPasswordReset: async (email: string): Promise<{ message: string }> => {
+    const response = await api.post('/request-password-reset/', { email });
+    return response.data;
+  },
+
+  confirmPasswordReset: async (uid: string, token: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await api.post('/reset-password/', {
+      uid,
+      token,
+      new_password: newPassword,
+    });
+    return response.data;
+  },
 };
 
 // Course API
