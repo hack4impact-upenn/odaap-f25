@@ -15,8 +15,11 @@ COPY . .
 RUN SECRET_KEY=build DATABASE_URL=postgres://u:p@localhost:5432/x \
     python manage.py collectstatic --noinput
 
-RUN chmod +x /app/entrypoint.sh
-
 EXPOSE 8080
 
-CMD ["/app/entrypoint.sh"]
+CMD exec sh -c "python manage.py migrate --noinput && \
+    gunicorn config.wsgi:application \
+    --bind 0.0.0.0:${PORT} \
+    --workers 2 \
+    --threads 4 \
+    --timeout 60"
