@@ -457,8 +457,8 @@ def student_dashboard(request, course_id):
             grade = student_grades_lookup.get((s.user_id, s.question_id))
             if grade:
                 grade_data = {
-                    "score": float(grade.score),
-                    "total": float(grade.total),
+                    "score": float(grade.score or 0),
+                    "total": float(grade.total or 0),
                     "is_overdue": grade.is_overdue,
                     "teacher_comment": grade.teacher_comment or "",
                 }
@@ -469,7 +469,7 @@ def student_dashboard(request, course_id):
                 "question_id": s.question_id,
                 "module_id": module.id,
                 "submission_type": s.submission_type,
-                "response": s.response,
+                "submission_response": s.submission_response,
                 "grade": grade_data,
             })
 
@@ -598,8 +598,8 @@ def teacher_dashboard(request, course_id):
             for s in mod_subs:
                 grade = all_grades.get((student.id, s.question_id))
                 if grade:
-                    total_score += float(grade.score)
-                    total_possible += float(grade.total)
+                    total_score += float(grade.score or 0)
+                    total_possible += float(grade.total or 0)
             if total_possible > 0:
                 total_pct += (total_score / total_possible) * 100
                 total_modules_with_grades += 1

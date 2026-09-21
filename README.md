@@ -343,6 +343,10 @@ This project supports AWS S3 for file storage and AWS SES (Simple Email Service)
 
 ## Heroku Deployment
 
+> **Outdated.** Nothing runs on Heroku. Production is Cloud Run (backend) +
+> Vercel (frontend) — see [DEPLOYMENT.md](DEPLOYMENT.md). This section is kept
+> only for historical reference.
+
 ### Prerequisites
 
 1. Install the [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli)
