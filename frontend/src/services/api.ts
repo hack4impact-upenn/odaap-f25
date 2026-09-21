@@ -150,11 +150,11 @@ export const courseAPI = {
   },
 
   addUser: async (courseId: number, userId: number): Promise<void> => {
-    await api.post(`/courses/${courseId}/users`, { user_id: userId });
+    await api.post(`/courses/${courseId}/users/`, { user_id: userId });
   },
 
   removeUser: async (courseId: number, userId: number): Promise<void> => {
-    await api.delete(`/courses/${courseId}/users`, { data: { user_id: userId } });
+    await api.delete(`/courses/${courseId}/users/`, { data: { user_id: userId } });
   },
 
   updateZoomLink: async (courseId: number, zoomLink: string): Promise<Course> => {

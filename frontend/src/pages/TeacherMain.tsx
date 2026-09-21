@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { useCourse } from '../contexts/CourseContext';
-import { dashboardAPI, authAPI } from '../services/api';
+import { dashboardAPI, authAPI, courseAPI } from '../services/api';
 import { moduleDisplayTitle, type Module, type User } from '../types';
 import './TeacherMain.css';
 
@@ -20,6 +20,8 @@ const TeacherMain: React.FC = () => {
   const [resetPasswordName, setResetPasswordName] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [studentToRemove, setStudentToRemove] = useState<User | null>(null);
+  const [isRemovingStudent, setIsRemovingStudent] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -31,11 +33,11 @@ const TeacherMain: React.FC = () => {
     }
   }, [selectedCourse, courseLoading]);
 
-  const loadData = async () => {
+  const loadData = async ({ silent = false } = {}) => {
     if (!selectedCourse) return;
 
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const dashboard = await dashboardAPI.getTeacherDashboard(selectedCourse.id);
 
       const courseModules = dashboard.modules as Array<Module & { progress: number }>;
@@ -80,6 +82,23 @@ const TeacherMain: React.FC = () => {
       alert(msg);
     } finally {
       setIsResettingPassword(false);
+    }
+  };
+
+  const handleRemoveStudent = async () => {
+    if (!selectedCourse || !studentToRemove) return;
+    try {
+      setIsRemovingStudent(true);
+      await courseAPI.removeUser(selectedCourse.id, studentToRemove.id);
+      setStudents((prev) => prev.filter((s) => s.id !== studentToRemove.id));
+      setStudentToRemove(null);
+      // Refetch so module completion % and grades reflect the new roster
+      await loadData({ silent: true });
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Failed to remove student';
+      alert(msg);
+    } finally {
+      setIsRemovingStudent(false);
     }
   };
 
@@ -184,17 +203,27 @@ const TeacherMain: React.FC = () => {
                             : 'No Overdue Assignments'}
                         </span>
                       </div>
-                      <button
-                        className="reset-password-btn"
-                        onClick={() => {
-                          setResetPasswordUserId(student.id);
-                          setResetPasswordName(`${student.first_name} ${student.last_name}`);
-                          setResetNewPassword('');
-                        }}
-                        title="Reset password"
-                      >
-                        🔑 Reset Password
-                      </button>
+                      <div className="student-actions">
+                        <button
+                          className="reset-password-btn"
+                          onClick={() => {
+                            setResetPasswordUserId(student.id);
+                            setResetPasswordName(`${student.first_name} ${student.last_name}`);
+                            setResetNewPassword('');
+                          }}
+                          title="Reset password"
+                        >
+                          🔑 Reset Password
+                        </button>
+                        <button
+                          type="button"
+                          className="remove-student-btn"
+                          onClick={() => setStudentToRemove(student)}
+                          title="Remove student from course"
+                        >
+                          🗑️ Remove
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -257,6 +286,39 @@ const TeacherMain: React.FC = () => {
               <button
                 className="reset-password-cancel"
                 onClick={() => { setResetPasswordUserId(null); setResetNewPassword(''); }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {studentToRemove && (
+        <div className="reset-password-overlay" onClick={() => !isRemovingStudent && setStudentToRemove(null)}>
+          <div className="reset-password-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Remove Student?</h3>
+            <p className="reset-password-info">
+              Are you sure you want to remove{' '}
+              <strong>{studentToRemove.first_name} {studentToRemove.last_name}</strong> ({studentToRemove.email}) from{' '}
+              <strong>{selectedCourse?.course_name}</strong>?
+            </p>
+            <p className="reset-password-info">
+              They will lose access to this course, and <strong>all of their submissions and grades for this
+              course will be permanently deleted</strong>. This cannot be undone.
+            </p>
+            <div className="reset-password-actions">
+              <button
+                className="remove-student-confirm"
+                onClick={handleRemoveStudent}
+                disabled={isRemovingStudent}
+              >
+                {isRemovingStudent ? 'Removing...' : 'Remove Student'}
+              </button>
+              <button
+                className="reset-password-cancel"
+                onClick={() => setStudentToRemove(null)}
+                disabled={isRemovingStudent}
               >
                 Cancel
               </button>

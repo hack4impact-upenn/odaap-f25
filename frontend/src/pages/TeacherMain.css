@@ -231,12 +231,12 @@
 }
 
 .reset-password-btn {
-  padding: 6px 14px;
+  padding: 3px 8px;
   background: transparent;
   border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -246,6 +246,52 @@
   background: #fff3e0;
   border-color: #ff9800;
   color: #e65100;
+}
+
+.student-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.remove-student-btn {
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.remove-student-btn:hover {
+  background: #ffebee;
+  border-color: #e53935;
+  color: #c62828;
+}
+
+.remove-student-confirm {
+  flex: 1;
+  padding: 10px 20px;
+  background: #e53935;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-student-confirm:hover:not(:disabled) {
+  background: #c62828;
+}
+
+.remove-student-confirm:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 .reset-password-overlay {

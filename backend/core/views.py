@@ -13,6 +13,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from django.http import Http404
+from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -33,7 +34,7 @@ def generate_enrollment_code(length=5):
             return code
 from .models import (
     Course, CourseToStudents, CourseToTeachers, Module, Question, QuestionType,
-    Submission, UserQuestionGrade, QuestionToCorrectAnswers, User, Announcement, Resource
+    Submission, UserQuestionGrade, UserModuleGrade, QuestionToCorrectAnswers, User, Announcement, Resource
 )
 from .serializers import (
     CourseSerializer, ModuleSerializer, QuestionSerializer, 
@@ -829,13 +830,19 @@ class CourseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_200_OK
             )
     
-    @action(detail=True, methods=['delete'], url_path='users')
+    @add_user_to_course.mapping.delete
     def remove_user_from_course(self, request, pk=None):
         """
         DELETE /api/courses/{course_id}/users
         user_id provided in request body. Removes user from course.
+        Only teachers can remove users (get_queryset limits them to their own courses).
         """
         course = self.get_object()
+        if request.user.isStudent:
+            return Response(
+                {"error": "Only teachers can remove users from a course"},
+                status=status.HTTP_403_FORBIDDEN
+            )
         user_id = request.data.get('user_id')
         
         if not user_id:
@@ -854,7 +861,12 @@ class CourseViewSet(viewsets.ModelViewSet):
         
         removed = False
         if CourseToStudents.objects.filter(course=course, user=user).exists():
-            CourseToStudents.objects.filter(course=course, user=user).delete()
+            # Dropped students' work is deleted for this course only; other courses are untouched
+            with transaction.atomic():
+                Submission.objects.filter(user=user, module__course=course).delete()
+                UserQuestionGrade.objects.filter(user=user, question__module__course=course).delete()
+                UserModuleGrade.objects.filter(user=user, module__course=course).delete()
+                CourseToStudents.objects.filter(course=course, user=user).delete()
             removed = True
         if CourseToTeachers.objects.filter(course=course, user=user).exists():
             CourseToTeachers.objects.filter(course=course, user=user).delete()
